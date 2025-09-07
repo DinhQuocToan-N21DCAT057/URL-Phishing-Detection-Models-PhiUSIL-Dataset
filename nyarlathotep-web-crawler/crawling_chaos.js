@@ -10,7 +10,9 @@ puppeteer.use(StealthPlugin());
     const candidateUrls = normalizeUrl(rawUrl);
 
     const browser = await puppeteer.launch({
-        headless: false,
+        //headless: false, //Câu hình cho local
+        headless: true, //Cấu hình cho Colab
+        executablePath: '/usr/bin/chromium-browser', //Cấu hình cho Colab
         ignoreHTTPSErrors: true,
         args: [
             '--disable-web-security',
