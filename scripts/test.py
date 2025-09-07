@@ -3,7 +3,7 @@ import os
 
 from url_features_extractor import URL_EXTRACTOR
 
-url = "http://www.fairytalesinc.com"
+url = "https://www.flow.page/eastlink.ca"
 
 temp = []
 extractor = URL_EXTRACTOR(url)
@@ -12,4 +12,3 @@ temp.append(data)
 
 test = pd.DataFrame(temp)
 test.to_csv("test.csv", index=False)
-
