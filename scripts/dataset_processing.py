@@ -8,11 +8,11 @@ import re
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 def chk_dup(df):
-    df["URL"] = df["URL"].astype(str).str.strip()
+    df["url"] = df["url"].astype(str).str.strip()
     df["label"] = df["label"].astype(int)
-    duplicates = df[df.duplicated(subset=['URL'])]
-    print(f"Found duplicated rows by 'URL':\n{duplicates}")
-    return df.drop_duplicates(subset=['URL'])
+    duplicates = df[df.duplicated(subset=['url'])]
+    print(f"Found duplicated rows by 'url':\n{duplicates}")
+    return df.drop_duplicates(subset=['url'])
 
 def chk_stat_col(df, col_name):
     """Check statistic of specific column: count all values and display ratio using matplotlib"""
@@ -86,56 +86,6 @@ def add_col(df, col_name, col_val):
     df[col_name] = col_val
     return df
 
-def ensure_url_label(df):
-    """
-    Trả về dataframe chỉ còn đúng 2 cột: URL (string) và label (int 0/1),
-    dù file gốc có bị lệch cột hay bị gộp.
-    """
-    # 1) Nếu đã có sẵn 2 cột
-    cols_lower = [c.lower().strip() for c in df.columns]
-    colmap = {c.lower().strip(): c for c in df.columns}
-    if "url" in cols_lower and "label" in cols_lower:
-        URL_col = colmap["url"]
-        LABEL_col = colmap["label"]
-        out = df[[URL_col, LABEL_col]].copy()
-        out.columns = ["URL", "label"]
-    else:
-        # 2) Thử khôi phục khi bị gộp vào 1 cột (thường là cột chứa URL)
-        #    - Tìm cột có vẻ là URL (có "http")
-        candidate_cols = [c for c in df.columns if df[c].astype(str).str.contains(r"http", case=False, na=False).any()]
-        if candidate_cols:
-            c = candidate_cols[0]
-            s = df[c].astype(str)
-
-            # Tách theo dấu phẩy cuối (URL,0/1)
-            tmp = s.str.rsplit(",", n=1, expand=True)
-            if tmp.shape[1] == 2 and tmp[1].str.strip().str.match(r"^[01]$").fillna(False).all():
-                out = pd.DataFrame({"URL": tmp[0].str.strip(), "label": tmp[1].astype(int)})
-            else:
-                # Tách theo khoảng trắng cuối (URL 0/1)
-                tmp = s.str.rsplit(r"\s+", n=1, expand=True, regex=True)
-                if tmp.shape[1] == 2 and tmp[1].str.strip().str.match(r"^[01]$").fillna(False).all():
-                    out = pd.DataFrame({"URL": tmp[0].str.strip(), "label": tmp[1].astype(int)})
-                else:
-                    # Nếu vẫn không được, lấy cột cuối làm label, cột có http làm URL
-                    last_col_series = df.iloc[:, -1].astype(str)
-                    lab = last_col_series.str.extract(r"([01])$")[0]
-                    out = pd.DataFrame({"URL": s, "label": lab})
-        else:
-            # 3) Không tìm được cột có http ⇒ lấy cột đầu là URL, cột cuối là label
-            s = df.iloc[:, 0].astype(str)
-            last_col_series = df.iloc[:, -1].astype(str)
-            lab = last_col_series.str.extract(r"([01])$")[0]
-            out = pd.DataFrame({"URL": s, "label": lab})
-
-    # Làm sạch cuối cùng
-    out["URL"] = out["URL"].astype(str).str.strip()
-    # ép label về {0,1}
-    out["label"] = (out["label"].astype(str).str.extract(r"([01])$")[0]).fillna("0").astype(int)
-    out["label"] = out["label"].clip(0, 1)
-    return out
-
-
 MODES = {
     'chk_dup': chk_dup,
     'chk_stat_col': chk_stat_col,
@@ -175,8 +125,7 @@ if __name__ == '__main__':
     for file in args.files:
         try:
             file_path = os.path.join(dir_path, file)
-            df = pd.read_csv(file_path, sep=",", engine="python", encoding="utf-8")
-            df = ensure_url_label(df)
+            df = pd.read_csv(file_path, sep=";", engine="python", encoding="utf-8")
 
             # # Nếu label không tồn tại đúng cột vì bị dính Title → lấy cột cuối cùng làm label
             # if "label" not in df.columns:
