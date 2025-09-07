@@ -3,7 +3,7 @@ import os
 
 from url_features_extractor import URL_EXTRACTOR
 
-url = "https://www.flow.page/eastlink.ca"
+url = "https://www.resonabank.co.jp.nryey.icu/v1/check"
 
 temp = []
 extractor = URL_EXTRACTOR(url)

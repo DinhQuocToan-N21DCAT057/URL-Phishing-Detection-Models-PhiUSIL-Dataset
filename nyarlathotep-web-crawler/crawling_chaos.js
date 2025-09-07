@@ -544,19 +544,27 @@ puppeteer.use(StealthPlugin());
         fs.mkdirSync("screenshots");
     }
 
-    const safeFilename = targetUrl
-        .replace(/(^\w+:|^)\/\//, '')
-        .replace(/[^a-z0-9]/gi, '_')
-        .toLowerCase();
+    // Use MD5 hash of the URL to avoid long filenames
+    const urlHash = crypto.createHash('md5').update(targetUrl).digest('hex');
+    const screenshotPath = path.join("screenshots", `${urlHash}.png`);
 
-    const screenshotPath = path.join( "screenshots", `${safeFilename}.png`);
-
-    // Take screenshot
-    await page.screenshot({
-        path: screenshotPath,
-        fullPage: true
-    });
-
+    // Take screenshot with try-catch to handle errors like zero-width
+    let screenshotTaken = false;
+    try {
+        // Check if page has content before screenshot (basic check)
+        const contentLength = await page.evaluate(() => document.body.innerHTML.length);
+        if (contentLength > 0) {
+            await page.screenshot({
+                path: screenshotPath,
+                fullPage: true
+            });
+            screenshotTaken = true;
+        } else {
+            console.warn(`Skipping screenshot for ${targetUrl}: Page content is empty.`);
+        }
+    } catch (err) {
+        console.error(`Screenshot failed for ${targetUrl}:`, err.message, err.stack);
+    }
     // Add metadata
     features.is_alive = is_alive;
     features.extraction_timestamp = new Date().toISOString();

@@ -211,6 +211,7 @@ __marimo__/
 /test.csv
 /Raw_PhiUSIIL_Phishing_URL_Dataset.csv
 /final_dataset_0_3.csv
+/verified_onl_phishing.csv
 
 # Node JS
 /node_modules
