@@ -15,7 +15,12 @@ puppeteer.use(StealthPlugin());
         args: [
             '--disable-web-security',
             '--disable-features=IsolateOrigins,site-per-process',
-            '--no-sandbox'
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-web-security',
+            '--disable-client-side-phishing-detection',
+            '--safebrowsing-disable-auto-update',
+            '--safebrowsing-disable-download-protection'
         ]
     });
 
