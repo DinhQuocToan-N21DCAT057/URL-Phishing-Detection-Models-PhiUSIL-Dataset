@@ -8,15 +8,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DinhQuocToan-N21DCAT057/Multi-Labels-URLs-ML-DL-Detection-Models.git"
+    "url": "git+https://github.com/DinhQuocToan-N21DCAT057/URL-Phishing-Detection-Models-PhiUSIL-Dataset.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/DinhQuocToan-N21DCAT057/Multi-Labels-URLs-ML-DL-Detection-Models/issues"
+    "url": "https://github.com/DinhQuocToan-N21DCAT057/URL-Phishing-Detection-Models-PhiUSIL-Dataset/issues"
   },
-  "homepage": "https://github.com/DinhQuocToan-N21DCAT057/Multi-Labels-URLs-ML-DL-Detection-Models#readme",
+  "homepage": "https://github.com/DinhQuocToan-N21DCAT057/URL-Phishing-Detection-Models-PhiUSIL-Dataset#readme",
   "dependencies": {
     "puppeteer": "^24.16.2",
     "puppeteer-extra": "^3.3.6",
