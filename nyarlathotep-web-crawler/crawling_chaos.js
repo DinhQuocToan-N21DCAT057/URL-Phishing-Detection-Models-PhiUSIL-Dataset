@@ -8,22 +8,24 @@ puppeteer.use(StealthPlugin());
 (async () => {
     const rawUrl = process.argv[2] || 'example.com';
     const candidateUrls = normalizeUrl(rawUrl);
-
+  
+    // detect môi trường
+    const isColab = process.env.COLAB_RELEASE_TAG !== undefined || process.env.COLAB_GPU !== undefined;
+  
     const browser = await puppeteer.launch({
-        //headless: false, //Câu hình cho local
-        headless: true, //Cấu hình cho Colab
-        executablePath: '/usr/bin/chromium-browser', //Cấu hình cho Colab
-        ignoreHTTPSErrors: true,
-        args: [
-            '--disable-web-security',
-            '--disable-features=IsolateOrigins,site-per-process',
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-web-security',
-            '--disable-client-side-phishing-detection',
-            '--safebrowsing-disable-auto-update',
-            '--safebrowsing-disable-download-protection'
-        ]
+      headless: isColab ? true : false,  // Colab bắt buộc headless
+      executablePath: isColab ? '/usr/bin/chromium-browser' : undefined, // Colab dùng chromium apt
+      ignoreHTTPSErrors: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--disable-client-side-phishing-detection',
+        '--safebrowsing-disable-auto-update',
+        '--safebrowsing-disable-download-protection'
+      ]
     });
 
     const page = await browser.newPage();
