@@ -14,7 +14,6 @@ puppeteer.use(StealthPlugin());
   
     const browser = await puppeteer.launch({
       headless: isColab ? true : false,  // Colab bắt buộc headless
-      executablePath: isColab ? '/usr/bin/chromium-browser' : undefined, // Colab dùng chromium apt
       ignoreHTTPSErrors: true,
       args: [
         '--no-sandbox',
