@@ -3,11 +3,12 @@ import os
 
 from url_features_extractor import URL_EXTRACTOR
 
-url = "https://nacional1.webcindario.com/"
+url = "https://sexyyphotooo.weebly.com/"
 
 temp = []
 extractor = URL_EXTRACTOR(url)
-data = extractor.extract_to_dataset() 
+data = extractor.extract_to_dataset()
+print(extractor.exec_time)
 temp.append(data)
 
 test = pd.DataFrame(temp)
