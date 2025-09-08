@@ -9,62 +9,144 @@ puppeteer.use(StealthPlugin());
 (async () => {
     const rawUrl = process.argv[2] || 'example.com';
     const candidateUrls = normalizeUrl(rawUrl);
-  
+
     // detect môi trường
     const isColab = process.env.COLAB_RELEASE_TAG !== undefined || process.env.COLAB_GPU !== undefined;
-  
+
     const browser = await puppeteer.launch({
-      headless: isColab ? true : false,  // Colab bắt buộc headless
-      ignoreHTTPSErrors: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-        '--disable-client-side-phishing-detection',
-        '--safebrowsing-disable-auto-update',
-        '--safebrowsing-disable-download-protection'
-      ]
+        headless: isColab ? true : false,
+        ignoreHTTPSErrors: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--disable-client-side-phishing-detection',
+            '--safebrowsing-disable-auto-update',
+            '--safebrowsing-disable-download-protection'
+        ]
     });
 
     const page = await browser.newPage();
 
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36');
+    // Track redirects and responses
+    let finalUrl = null;
+    let redirectChain = [];
+    let statusCode = null;
+    let responseHeaders = {};
 
-    // Set viewport for consistent rendering
+    // Listen to response events to track redirects and status codes
+    page.on('response', response => {
+        if (response.url() === page.url()) {
+            statusCode = response.status();
+            responseHeaders = response.headers();
+        }
+    });
+
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1920, height: 1080 });
 
     let targetUrl = null;
+    let originalUrl = null;
     let is_alive = 0;
+
     for (const url of candidateUrls) {
         try {
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-            targetUrl = url;
-            is_alive = 1;
-            break;
+            originalUrl = url;
+            const response = await page.goto(url, {
+                waitUntil: 'domcontentloaded',
+                timeout: 60000
+            });
+
+            finalUrl = page.url();
+            statusCode = response.status();
+
+            // Check if page is actually accessible and not an error page
+            if (isValidPage(finalUrl, originalUrl, statusCode, await page.title(), await page.content())) {
+                targetUrl = finalUrl;
+                is_alive = 1;
+                break;
+            } else {
+                console.error(`Invalid page detected for ${url}: redirected to ${finalUrl}, status: ${statusCode}`);
+            }
         } catch (err) {
-            console.error(`Failed with ${url}:`, err.message, err.stack);
+            console.error(`Failed with ${url}:`, err.message);
         }
     }
 
-    await new Promise(r => setTimeout(r, 5000));
+    await new Promise(r => setTimeout(r, 2000));
 
     if (is_alive === 0) {
         const features = {
-            url: targetUrl,
+            original_url: originalUrl,
+            final_url: finalUrl,
             is_alive: 0,
-            extraction_timestamp: new Date().toISOString()
+            redirect_detected: true,
+            status_code: statusCode,
+            extraction_timestamp: new Date().toISOString(),
+            error_reason: 'Page not accessible or redirected to error page'
         };
         console.log(JSON.stringify(features));
         await browser.close();
         process.exit(0);
     }
 
-    // Simulate human actions để tránh detection
-    await page.mouse.move(100, 100);
-    await page.evaluate(() => window.scrollBy(0, 200));
-    await new Promise(r => setTimeout(r, 1000));
+    // Additional validation before feature extraction
+    const pageValidation = await page.evaluate(() => {
+        const title = document.title.toLowerCase();
+        const bodyText = document.body ? document.body.textContent.toLowerCase() : '';
+
+        // Check for common error page indicators
+        const errorIndicators = [
+            'page not found', '404', 'not found', 'error',
+            'cloudflare', 'firebase hosting', 'github pages',
+            'access denied', 'forbidden', 'unauthorized',
+            'service unavailable', 'maintenance', 'coming soon',
+            'domain for sale', 'parked domain', 'suspended'
+        ];
+
+        const hasErrorIndicators = errorIndicators.some(indicator =>
+            title.includes(indicator) || bodyText.includes(indicator)
+        );
+
+        // Check content length - error pages usually have minimal content
+        const contentLength = bodyText.trim().length;
+        const isMinimalContent = contentLength < 500; // Adjust threshold as needed
+
+        // Check for generic page structures
+        const hasGenericStructure = document.querySelectorAll('div').length < 10 &&
+            document.querySelectorAll('p').length < 5;
+
+        return {
+            hasErrorIndicators,
+            contentLength,
+            isMinimalContent,
+            hasGenericStructure,
+            title: document.title,
+            url: window.location.href
+        };
+    });
+
+    // If validation fails, mark as invalid
+    if (pageValidation.hasErrorIndicators ||
+        (pageValidation.isMinimalContent && pageValidation.hasGenericStructure)) {
+
+        const features = {
+            original_url: originalUrl,
+            final_url: finalUrl,
+            is_alive: 0,
+            redirect_detected: true,
+            status_code: statusCode,
+            validation_failed: true,
+            validation_details: pageValidation,
+            extraction_timestamp: new Date().toISOString(),
+            error_reason: 'Page appears to be an error/placeholder page'
+        };
+        console.log(JSON.stringify(features));
+        await browser.close();
+        process.exit(0);
+    }
 
     // Extract comprehensive content-based features using Puppeteer
     const features = await page.evaluate(() => {
@@ -545,8 +627,8 @@ puppeteer.use(StealthPlugin());
         fs.mkdirSync("screenshots");
     }
 
-    // Use MD5 hash of the URL to avoid long filenames
-    const urlHash = crypto.createHash('md5').update(targetUrl).digest('hex');
+    // Use MD5 hash of the original URL to avoid long filenames
+    const urlHash = crypto.createHash('md5').update(originalUrl).digest('hex');
     const screenshotPath = path.join("screenshots", `${urlHash}.png`);
 
     // Take screenshot with try-catch to handle errors like zero-width
@@ -566,18 +648,111 @@ puppeteer.use(StealthPlugin());
     } catch (err) {
         console.error(`Screenshot failed for ${targetUrl}:`, err.message, err.stack);
     }
-    // Add metadata
+
+    // Add metadata including redirect information
+    features.original_url = originalUrl;
+    features.final_url = finalUrl;
     features.is_alive = is_alive;
+    features.redirect_detected = originalUrl !== finalUrl;
+    features.status_code = statusCode;
     features.extraction_timestamp = new Date().toISOString();
     features.user_agent = await page.evaluate(() => navigator.userAgent);
     features.viewport = await page.viewport();
     features.screenshot_path = screenshotPath;
+    features.screenshot_taken = screenshotTaken;
 
     // Display results
     console.log(JSON.stringify(features));
 
     await browser.close();
 })();
+
+/**
+ * Check if the page is valid and not an error/redirect page
+ * @param {string} finalUrl - The final URL after redirects
+ * @param {string} originalUrl - The original requested URL
+ * @param {number} statusCode - HTTP status code
+ * @param {string} title - Page title
+ * @param {string} content - Page content
+ * @returns {boolean} True if page is valid
+ */
+function isValidPage(finalUrl, originalUrl, statusCode, title, content) {
+    // Check status code
+    if (statusCode >= 400) {
+        return false;
+    }
+
+    // Extract domain from URLs for comparison
+    const getHostname = (url) => {
+        try {
+            return new URL(url.startsWith('http') ? url : 'https://' + url).hostname.toLowerCase();
+        } catch {
+            return url.toLowerCase();
+        }
+    };
+
+    const originalHostname = getHostname(originalUrl);
+    const finalHostname = getHostname(finalUrl);
+
+    // Check if redirected to a completely different domain (common for error pages)
+    const commonErrorDomains = [
+        'cloudflare.com',
+        'firebase.google.com',
+        'firebaseapp.com',
+        'github.io',
+        'pages.github.com',
+        'herokuapp.com',
+        'netlify.app',
+        'vercel.app'
+    ];
+
+    if (commonErrorDomains.some(domain => finalHostname.includes(domain)) &&
+        !commonErrorDomains.some(domain => originalHostname.includes(domain))) {
+        return false;
+    }
+
+    // Check for major domain changes (different root domain)
+    const getRootDomain = (hostname) => {
+        const parts = hostname.split('.');
+        return parts.length >= 2 ? parts.slice(-2).join('.') : hostname;
+    };
+
+    const originalRoot = getRootDomain(originalHostname);
+    const finalRoot = getRootDomain(finalHostname);
+
+    // Allow subdomains but not completely different domains
+    if (originalRoot !== finalRoot &&
+        !finalHostname.includes(originalRoot) &&
+        !originalHostname.includes(finalRoot)) {
+        return false;
+    }
+
+    // Check title and content for error indicators
+    const titleLower = title.toLowerCase();
+    const contentLower = content.toLowerCase();
+
+    const errorKeywords = [
+        'page not found', '404', 'not found', 'error',
+        'cloudflare', 'firebase hosting', 'github pages',
+        'access denied', 'forbidden', 'unauthorized',
+        'service unavailable', 'maintenance', 'coming soon',
+        'domain for sale', 'parked domain', 'suspended',
+        'default web page', 'welcome to', 'it works',
+        'apache ubuntu default', 'nginx welcome'
+    ];
+
+    if (errorKeywords.some(keyword => titleLower.includes(keyword) || contentLower.includes(keyword))) {
+        return false;
+    }
+
+    // Check content length - very short content might indicate error page
+    const textContent = content.replace(/<[^>]*>/g, '').trim();
+    if (textContent.length < 200 && !textContent.includes(originalHostname.replace('www.', ''))) {
+        return false;
+    }
+
+    return true;
+}
 
 function normalizeUrl(inputUrl) {
     if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
