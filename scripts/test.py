@@ -3,7 +3,7 @@ import os
 
 from url_features_extractor import URL_EXTRACTOR
 
-url = "https://allegrolokalnie.pl-oferta550325.cfd"
+url = "https://nacional1.webcindario.com/"
 
 temp = []
 extractor = URL_EXTRACTOR(url)

@@ -11,6 +11,7 @@ if __name__ == '__main__':
     parser.add_argument('--file', type=str, required=True, help='Dataset file')
     parser.add_argument('--start_idx', type=int, help='Start index (inclusive)')
     parser.add_argument('--end_idx', type=int, help='End index (exclusive)')
+    parser.add_argument('--checkpoint_step', type=int, help='Checkpoint per step', default=200)
     args = parser.parse_args()
 
     if args.file:
@@ -28,6 +29,9 @@ if __name__ == '__main__':
         sliced_df = df.iloc[args.start_idx:args.end_idx]
         print(f"Extracting urls from {args.start_idx} to {args.end_idx} ({len(sliced_df)})")
         
+        temp = []
+        last_checkpoint = args.start_idx
+
         for batch_idx, item in enumerate(sliced_df.itertuples(index=True), 1):
             print("="*150)
             print(f"[{batch_idx}/{len(sliced_df)}] (global idx: {item.Index}) Extracting features for:")
@@ -48,9 +52,20 @@ if __name__ == '__main__':
                 print(f"  ❌ Error extracting {item.url}: {e}")
                 continue
 
-        print("="*150)
-        final_dataset = pd.DataFrame(temp)
-        final_dataset.to_csv(f"final_dataset_{args.start_idx}_{args.end_idx}.csv", index=False)
+            # ⏩ Checkpoint flush (luôn ghi, kể cả khi temp rỗng)
+            is_checkpoint = (batch_idx % args.checkpoint_step == 0)
+            is_last = (batch_idx == len(sliced_df))
+
+            if is_checkpoint or is_last:
+                checkpoint_end = args.start_idx + batch_idx
+                out_file = f"final_dataset_{args.start_idx}_{checkpoint_end}.csv"
+                df_checkpoint = pd.DataFrame(temp)
+
+                # nếu không có record nào thì vẫn tạo file rỗng để đánh dấu checkpoint
+                df_checkpoint.to_csv(out_file, index=False)
+                print(f"  💾 Saved checkpoint: {out_file} (rows={len(df_checkpoint)})")
+
+
     else:
         print(f"Extracting url all {len(df)} urls")
         for idx, item in enumerate(df.itertuples(index=False), 1):
