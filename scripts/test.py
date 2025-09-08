@@ -3,7 +3,7 @@ import os
 
 from url_features_extractor import URL_EXTRACTOR
 
-url = "http://uaSH0kqRxr8xXctfQN.accompanysummary.my.id/VOHP0L3ZYAuMjE4NzktMzc3NjkxLTEwMTkzMTExMy1vLTUyNy0xMi01NjQzLTg1NjYyLTAtMC0wLTAtWW1mUnVUUFhELTM4YTQwNGNm"
+url = "https://allegrolokalnie.pl-oferta550325.cfd"
 
 temp = []
 extractor = URL_EXTRACTOR(url)
