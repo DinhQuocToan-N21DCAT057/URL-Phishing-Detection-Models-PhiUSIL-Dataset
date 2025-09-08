@@ -33,10 +33,20 @@ if __name__ == '__main__':
             print(f"[{batch_idx}/{len(sliced_df)}] (global idx: {item.Index}) Extracting features for:")
             print(f"  URL  : {item.url}")
             print(f"  Label: {item.label}")
-            extractor = URL_EXTRACTOR(item.url, item.label)
-            data = extractor.extract_to_dataset()
-            print(f"  URL '{item.url}' took '{round(extractor.exec_time, 2)}' seconds to extract")
-            temp.append(data)
+            try:
+                extractor = URL_EXTRACTOR(item.url, item.label)
+                data = extractor.extract_to_dataset()
+
+                # nếu crawler fail (ví dụ content_features is_alive = 0) thì bỏ qua
+                if extractor.content_features.get("is_alive", 1) == 0:
+                    print(f"  ⚠️ Skipping URL '{item.url}' (site not alive or crawler error)")
+                    continue
+
+                print(f"  URL '{item.url}' took '{round(extractor.exec_time, 2)}' seconds to extract")
+                temp.append(data)
+            except Exception as e:
+                print(f"  ❌ Error extracting {item.url}: {e}")
+                continue
 
         print("="*150)
         final_dataset = pd.DataFrame(temp)
@@ -48,10 +58,20 @@ if __name__ == '__main__':
             print(f"[{idx}/{total}] Extracting features for:")
             print(f"  URL  : {item.url}")
             print(f"  Label: {item.label}")
-            extractor = URL_EXTRACTOR(item.url, item.label)
-            data = extractor.extract_to_dataset()
-            print(f"  URL '{item.url}' took '{round(extractor.exec_time, 2)}' seconds to extract")
-            temp.append(data)
+            try:
+                extractor = URL_EXTRACTOR(item.url, item.label)
+                data = extractor.extract_to_dataset()
+
+                # nếu crawler fail (ví dụ content_features is_alive = 0) thì bỏ qua
+                if extractor.content_features.get("is_alive", 1) == 0:
+                    print(f"  ⚠️ Skipping URL '{item.url}' (site not alive or crawler error)")
+                    continue
+
+                print(f"  URL '{item.url}' took '{round(extractor.exec_time, 2)}' seconds to extract")
+                temp.append(data)
+            except Exception as e:
+                print(f"  ❌ Error extracting {item.url}: {e}")
+                continue
 
         print("="*150)
         final_dataset = pd.DataFrame(temp)

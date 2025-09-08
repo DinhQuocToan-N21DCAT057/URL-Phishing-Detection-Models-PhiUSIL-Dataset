@@ -103,159 +103,139 @@ class URL_EXTRACTOR(object):
 
     @timer
     def __init__(self, url, label="Unknown", enable_logging=False):
-        # Log and execution time informations
+        # Logging & thời gian
         self.exec_time = 0.0
         self.log_level = logging.INFO if enable_logging else logging.WARNING
         logging.getLogger().setLevel(self.log_level)
+
+        # Các giá trị mặc định để tránh AttributeError
         self.url = url
+        self.label = label
+        self.content_features = {}
+        self.hostname = ""
+        self.domain = ""
+        self.subdomain = ""
+        self.tld = ""
+        self.path = ""
+        self.query = ""
+        self.scheme = ""
+        self.words_raw = []
+        self.words_raw_host = []
+        self.words_raw_path = []
+        self.hints = [
+            "wp","login","includes","admin","content","site","images",
+            "js","alibaba","css","myaccount","dropbox","themes",
+            "plugins","signin","view"
+        ]
+        self.headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            )
+        }
+        self.allbrands = []
+        self.res = None
 
-        self.CRAWLER_PATH = os.path.join(
-            BASE_DIR, "nyarlathotep-web-crawler", "crawling_chaos.js"
-        )
-        self.crawling_results = subprocess.run(
-            ["node", self.CRAWLER_PATH, url],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",  
-        )
-
-        if self.crawling_results.returncode != 0:
-            print("Error running Puppeteer:", self.crawling_results.stderr)
-            return None
-
+        # 1. Chạy Puppeteer crawler
+        self.CRAWLER_PATH = os.path.join(BASE_DIR, "nyarlathotep-web-crawler", "crawling_chaos.js")
         try:
-            self.content_features = json.loads(self.crawling_results.stdout)
-        except json.JSONDecodeError as e:
-            print("JSON decode error:", e)
-            print("Raw output:", self.crawling_results.stdout)
-            return None
+            self.crawling_results = subprocess.run(
+                ["node", self.CRAWLER_PATH, url],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120
+            )
+        except Exception as e:
+            logging.warning("Puppeteer subprocess failed: %s", e)
+            self.crawling_results = None
 
-        if self.crawling_results.returncode != 0:
-            print("Error running Puppeteer:", self.crawling_results.stderr)
-            # Set default values for failed crawler execution
-            self.content_features = self.get_default_content_features()
-            self.url = url
-        else:
+        # 2. Xử lý output từ crawler
+        if self.crawling_results and self.crawling_results.returncode == 0:
             try:
                 self.content_features = json.loads(self.crawling_results.stdout)
             except json.JSONDecodeError as e:
-                print("JSON decode error:", e)
-                print("Raw output:", self.crawling_results.stdout)
-                # Set default values for JSON decode error
+                logging.warning("JSON decode error: %s", e)
                 self.content_features = self.get_default_content_features()
-                self.url = url
+        else:
+            if self.crawling_results:
+                logging.warning("Puppeteer failed: %s", self.crawling_results.stderr)
+            self.content_features = self.get_default_content_features()
 
-        # Check if URL is alive and handle accordingly
+        # 3. Nếu URL chết → giữ nguyên self.url, còn không thì cập nhật từ crawler
         if self.content_features.get("is_alive", 0) == 0:
-            print(f"URL {url} is not accessible. Using default content features.")
-            # Override with default values for dead URLs
+            logging.info("URL %s is not accessible. Using default content features.", url)
             self.content_features = self.get_default_content_features()
             self.url = url
         else:
             self.url = self.content_features.get("url", url)
 
-        self.label = label
-        self.p = urlparse(self.url)
-        self.extracted = tldextract.extract(self.url)
-        self.hostname = self.p.hostname or ""
-        self.domain = self.extracted.domain + "." + self.extracted.suffix
-        self.subdomain = self.extracted.subdomain
-        self.tld = self.extracted.suffix
-        self.path = self.p.path or ""
-        self.query = self.p.query or ""
-        self.scheme = self.p.scheme
-        self.words_raw, self.words_raw_host, self.words_raw_path = (
-            self.words_raw_extraction()
-        )
+        # 4. Parse URL
+        try:
+            self.p = urlparse(self.url)
+        except Exception:
+            class _P: pass
+            self.p = _P()
+            self.p.hostname = ""
+            self.p.path = ""
+            self.p.query = ""
+            self.p.scheme = ""
 
-        # Whois and PyQuery Informations
-        self.res = self.get_whois()
+        try:
+            self.extracted = tldextract.extract(self.url)
+        except Exception:
+            class _E: pass
+            self.extracted = _E()
+            self.extracted.domain = ""
+            self.extracted.suffix = ""
+            self.extracted.subdomain = ""
 
-        # Other references
-        self.allbrands_path = open(
-            os.path.join(BASE_DIR, "scripts", "allbrands.txt"), "r"
-        )
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        self.allbrands = self.__txt_to_list()
-        self.hints = [
-            "wp",
-            "login",
-            "includes",
-            "admin",
-            "content",
-            "site",
-            "images",
-            "js",
-            "alibaba",
-            "css",
-            "myaccount",
-            "dropbox",
-            "themes",
-            "plugins",
-            "signin",
-            "view",
-        ]
+        self.hostname = getattr(self.p, "hostname", "") or ""
+        if getattr(self.extracted, "domain", ""):
+            if getattr(self.extracted, "suffix", ""):
+                self.domain = f"{self.extracted.domain}.{self.extracted.suffix}"
+            else:
+                self.domain = self.extracted.domain
+        else:
+            self.domain = self.hostname or ""
+        self.subdomain = getattr(self.extracted, "subdomain", "") or ""
+        self.tld = getattr(self.extracted, "suffix", "") or ""
+        self.path = getattr(self.p, "path", "") or ""
+        self.query = getattr(self.p, "query", "") or ""
+        self.scheme = getattr(self.p, "scheme", "") or ""
+
+        # 5. Word extraction
+        try:
+            self.words_raw, self.words_raw_host, self.words_raw_path = self.words_raw_extraction()
+        except Exception as e:
+            logging.warning("words_raw_extraction failed: %s", e)
+            self.words_raw, self.words_raw_host, self.words_raw_path = ([], [], [])
+
+        # 6. WHOIS
+        try:
+            self.res = self.get_whois()
+        except Exception as e:
+            logging.warning("get_whois failed: %s", e)
+            self.res = None
+
+        # 7. Allbrands
+        try:
+            self.allbrands_path = open(os.path.join(BASE_DIR, "scripts", "allbrands.txt"), "r")
+            self.allbrands = self.__txt_to_list()
+        except Exception as e:
+            logging.warning("could not load allbrands.txt: %s", e)
+            self.allbrands = []
+
+        # 8. Sus TLD + API key
         self.suspecious_tlds = [
-            "fit",
-            "tk",
-            "gp",
-            "ga",
-            "work",
-            "ml",
-            "date",
-            "wang",
-            "men",
-            "icu",
-            "online",
-            "click",  # Spamhaus
-            "country",
-            "stream",
-            "download",
-            "xin",
-            "racing",
-            "jetzt",
-            "ren",
-            "mom",
-            "party",
-            "review",
-            "trade",
-            "accountants",
-            "science",
-            "work",
-            "ninja",
-            "xyz",
-            "faith",
-            "zip",
-            "cricket",
-            "win",
-            "accountant",
-            "realtor",
-            "top",
-            "christmas",
-            "gdn",  # Shady Top-Level Domains
-            "link",  # Blue Coat Systems
-            "asia",
-            "club",
-            "la",
-            "ae",
-            "exposed",
-            "pe",
-            "go.id",
-            "rs",
-            "k12.pa.us",
-            "or.kr",
-            "ce.ke",
-            "audio",
-            "gob.pe",
-            "gov.az",
-            "website",
-            "bj",
-            "mx",
-            "media",
-            "sa.gov.au",  # statistics
+            "fit","tk","gp","ga","work","ml","date","wang","men","icu",
+            "online","click","country","stream","download","xin","racing","jetzt",
+            "ren","mom","party","review","trade","accountants","science","ninja","xyz",
+            "faith","zip","cricket","win","accountant","realtor","top","christmas","gdn",
+            "link","asia","club","la","ae","exposed","pe","go.id","rs","k12.pa.us","or.kr",
+            "ce.ke","audio","gob.pe","gov.az","website","bj","mx","media","sa.gov.au"
         ]
         self.OPR_API_key = "gk8cg0gckckwk8gso88ss4c888cs4csc480s00o8"
 
