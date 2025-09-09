@@ -214,6 +214,7 @@ __marimo__/
 
 # Node JS
 /node_modules
+/nyarlathotep-web-crawler/crawling_chaos_old.js
 
 # Images
 /screenshots
