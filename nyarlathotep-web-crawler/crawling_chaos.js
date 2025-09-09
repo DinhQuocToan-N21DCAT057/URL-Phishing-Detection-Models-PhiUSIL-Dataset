@@ -39,7 +39,7 @@ function normalizeUrl(inputUrl) {
     const isColab = process.env.COLAB_RELEASE_TAG !== undefined || process.env.COLAB_GPU !== undefined;
 
     const browser = await puppeteer.launch({
-        headless: false, // Force visible browser để debug
+        headless: isColab ? true : false, // Force visible browser để debug
         ignoreHTTPSErrors: true,
         args: [
             '--no-sandbox',
