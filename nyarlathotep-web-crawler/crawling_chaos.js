@@ -6,7 +6,32 @@ const crypto = require('crypto');
 
 puppeteer.use(StealthPlugin());
 
-(async () => {
+/**
+ * Check if the page is valid and not an error/redirect page
+ * @param {string} finalUrl - The final URL after redirects
+ * @param {string} originalUrl - The original requested URL
+ * @param {number} statusCode - HTTP status code
+ * @param {string} title - Page title
+ * @param {string} content - Page content
+ * @returns {boolean} True if page is valid
+ */
+function isValidPage(finalUrl, originalUrl, statusCode, title, content) {
+    // Rebuilt to only check status code <400, ignore other checks to accept minimal pages
+    if (statusCode >= 400) {
+        return false;
+    }
+    console.log('Debug isValidPage: Page is valid (status OK)');
+    return true;
+}
+
+function normalizeUrl(inputUrl) {
+    if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
+        return ['https://' + inputUrl, 'http://' + inputUrl];
+    }
+    return [inputUrl];
+}
+
+(async() => {
     const rawUrl = process.argv[2] || 'example.com';
     const candidateUrls = normalizeUrl(rawUrl);
 
@@ -14,21 +39,38 @@ puppeteer.use(StealthPlugin());
     const isColab = process.env.COLAB_RELEASE_TAG !== undefined || process.env.COLAB_GPU !== undefined;
 
     const browser = await puppeteer.launch({
-        headless: isColab ? true : false,
+        headless: false, // Force visible browser để debug
         ignoreHTTPSErrors: true,
         args: [
             '--no-sandbox',
+            '--no-first-run',
             '--disable-setuid-sandbox',
+            '--disable-extensions',
             '--disable-dev-shm-usage',
             '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--disable-component-extensions-with-background-pages',
+            '--disable-default-apps',
             '--disable-features=IsolateOrigins,site-per-process',
             '--disable-client-side-phishing-detection',
+            '--disable-popup-blocking',
+            '--disable-blink-features=AutomationControlled',
             '--safebrowsing-disable-auto-update',
-            '--safebrowsing-disable-download-protection'
+            '--safebrowsing-disable-download-protection',
         ]
     });
 
     const page = await browser.newPage();
+
+    // Enable request interception to prevent following redirects
+    await page.setRequestInterception(true);
+    page.on('request', request => {
+        if (request.isNavigationRequest() && request.redirectChain().length !== 0) {
+            request.abort(); // Stop following redirect
+        } else {
+            request.continue();
+        }
+    });
 
     // Track redirects and responses
     let finalUrl = null;
@@ -41,11 +83,17 @@ puppeteer.use(StealthPlugin());
         if (response.url() === page.url()) {
             statusCode = response.status();
             responseHeaders = response.headers();
+            if (statusCode >= 300 && statusCode < 400) {
+                console.log(`Detected redirect: ${statusCode}, Location: ${responseHeaders['location'] || 'unknown'}`);
+            }
         }
     });
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36');
-    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setViewport({
+        width: 1920,
+        height: 1080
+    });
 
     let targetUrl = null;
     let originalUrl = null;
@@ -55,15 +103,23 @@ puppeteer.use(StealthPlugin());
         try {
             originalUrl = url;
             const response = await page.goto(url, {
-                waitUntil: 'domcontentloaded',
+                waitUntil: 'networkidle2', // Đổi sang networkidle2 để chờ load đầy đủ hơn
                 timeout: 60000
             });
 
             finalUrl = page.url();
             statusCode = response.status();
 
-            // Check if page is actually accessible and not an error page
-            if (isValidPage(finalUrl, originalUrl, statusCode, await page.title(), await page.content())) {
+            // Nếu là redirect, lấy content gốc
+            let pageContent = await page.content();
+            let pageTitle = await page.title();
+
+            if (statusCode >= 300 && statusCode < 400) {
+                console.log('Extracting from redirect page:', finalUrl);
+            }
+
+            // Check if page is actually accessible
+            if (isValidPage(finalUrl, originalUrl, statusCode, pageTitle, pageContent)) {
                 targetUrl = finalUrl;
                 is_alive = 1;
                 break;
@@ -71,11 +127,11 @@ puppeteer.use(StealthPlugin());
                 console.error(`Invalid page detected for ${url}: redirected to ${finalUrl}, status: ${statusCode}`);
             }
         } catch (err) {
-            console.error(`Failed with ${url}:`, err.message);
+            console.error(`Failed with ${url}:`, err.message, err.stack);
         }
     }
 
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 10000)); // Tăng delay để JS load
 
     if (is_alive === 0) {
         const features = {
@@ -107,16 +163,21 @@ puppeteer.use(StealthPlugin());
         ];
 
         const hasErrorIndicators = errorIndicators.some(indicator =>
-            title.includes(indicator) || bodyText.includes(indicator)
-        );
+                title.includes(indicator) || bodyText.includes(indicator));
 
         // Check content length - error pages usually have minimal content
         const contentLength = bodyText.trim().length;
-        const isMinimalContent = contentLength < 500; // Adjust threshold as needed
+        const isMinimalContent = contentLength < 50; // Giảm ngưỡng
 
         // Check for generic page structures
-        const hasGenericStructure = document.querySelectorAll('div').length < 10 &&
-            document.querySelectorAll('p').length < 5;
+        const hasGenericStructure = document.querySelectorAll('div').length < 3 &&
+            document.querySelectorAll('p').length < 1; // Giảm ngưỡng
+
+        console.log('Debug pageValidation:');
+        console.log('- Has error indicators:', hasErrorIndicators);
+        console.log('- Content length:', contentLength);
+        console.log('- Is minimal content:', isMinimalContent);
+        console.log('- Has generic structure:', hasGenericStructure);
 
         return {
             hasErrorIndicators,
@@ -129,9 +190,7 @@ puppeteer.use(StealthPlugin());
     });
 
     // If validation fails, mark as invalid
-    if (pageValidation.hasErrorIndicators ||
-        (pageValidation.isMinimalContent && pageValidation.hasGenericStructure)) {
-
+    if (pageValidation.hasErrorIndicators) {
         const features = {
             original_url: originalUrl,
             final_url: finalUrl,
@@ -401,9 +460,12 @@ puppeteer.use(StealthPlugin());
         let elements_with_onload = 0;
 
         allElements.forEach(el => {
-            if (el.onclick) elements_with_onclick++;
-            if (el.onmouseover || el.onmouseout || el.onmousedown || el.onmouseup) elements_with_onmouse++;
-            if (el.onload) elements_with_onload++;
+            if (el.onclick)
+                elements_with_onclick++;
+            if (el.onmouseover || el.onmouseout || el.onmousedown || el.onmouseup)
+                elements_with_onmouse++;
+            if (el.onload)
+                elements_with_onload++;
         });
 
         // Check for specific content patterns
@@ -426,18 +488,9 @@ puppeteer.use(StealthPlugin());
             .filter(img => !img.src.includes(window.location.hostname)).length;
 
         // Text quality metrics
+        const avg_sentence_len = calculateAvgWordsPerSentence(bodyText);
         const avg_words_per_sentence = calculateAvgWordsPerSentence(bodyText);
         const readability_score = calculateFleschScore(bodyText);
-
-        // Calculate sentences for avg_sentence_len
-        const sentences = bodyText.trim().replace(/\s+/g, ' ')
-            .split(/[.!?]+\s+|[.!?]+$/)
-            .filter(sentence => {
-                const trimmed = sentence.trim();
-                return trimmed.length >= 3 && /[a-zA-Z]/.test(trimmed);
-            });
-        const totalWords = bodyText.split(/\s+/).filter(word => word.length > 0 && /[a-zA-Z0-9]/.test(word)).length;
-        const avg_sentence_len = sentences.length > 0 ? totalWords / sentences.length : 0;
 
         // Content structure ratios
         const txt_to_html_ratio = bodyText.length / document.documentElement.outerHTML.length;
@@ -469,7 +522,7 @@ puppeteer.use(StealthPlugin());
 
         // Social media presence
         const nb_social_media_links = Array.from(document.querySelectorAll('a[href]')).filter(a =>
-            /facebook|twitter|instagram|linkedin|youtube|tiktok/.test(a.href.toLowerCase())).length;
+                /facebook|twitter|instagram|linkedin|youtube|tiktok/.test(a.href.toLowerCase())).length;
         const has_social_sharing = document.querySelectorAll('[class*="share"], [class*="social"]').length > 0 ? 1 : 0;
         const nb_social_buttons = document.querySelectorAll('[class*="facebook"], [class*="twitter"], [class*="share"]').length;
 
@@ -613,7 +666,7 @@ puppeteer.use(StealthPlugin());
             // Advanced text analysis
             unique_words_ratio,
             punctuation_density,
-            punctuation_density,
+            num_in_txt,
             avg_paragraph_len,
 
             // Page statistics
@@ -666,93 +719,6 @@ puppeteer.use(StealthPlugin());
 
     await browser.close();
 })();
-
-/**
- * Check if the page is valid and not an error/redirect page
- * @param {string} finalUrl - The final URL after redirects
- * @param {string} originalUrl - The original requested URL
- * @param {number} statusCode - HTTP status code
- * @param {string} title - Page title
- * @param {string} content - Page content
- * @returns {boolean} True if page is valid
- */
-function isValidPage(finalUrl, originalUrl, statusCode, title, content) {
-    // Check status code
-    if (statusCode >= 400) {
-        return false;
-    }
-
-    // Extract domain from URLs for comparison
-    const getHostname = (url) => {
-        try {
-            return new URL(url.startsWith('http') ? url : 'https://' + url).hostname.toLowerCase();
-        } catch {
-            return url.toLowerCase();
-        }
-    };
-
-    const originalHostname = getHostname(originalUrl);
-    const finalHostname = getHostname(finalUrl);
-
-    // Check if redirected to a completely different domain (common for error pages)
-    const commonErrorDomains = [
-        'cloudflare.com',
-        'firebase.google.com',
-        'firebaseapp.com',
-        'github.io',
-        'pages.github.com',
-        'herokuapp.com',
-        'netlify.app',
-        'vercel.app'
-    ];
-
-    if (commonErrorDomains.some(domain => finalHostname.includes(domain)) &&
-        !commonErrorDomains.some(domain => originalHostname.includes(domain))) {
-        return false;
-    }
-
-    // Check for major domain changes (different root domain)
-    const getRootDomain = (hostname) => {
-        const parts = hostname.split('.');
-        return parts.length >= 2 ? parts.slice(-2).join('.') : hostname;
-    };
-
-    const originalRoot = getRootDomain(originalHostname);
-    const finalRoot = getRootDomain(finalHostname);
-
-    // Allow subdomains but not completely different domains
-    if (originalRoot !== finalRoot &&
-        !finalHostname.includes(originalRoot) &&
-        !originalHostname.includes(finalRoot)) {
-        return false;
-    }
-
-    // Check title and content for error indicators
-    const titleLower = title.toLowerCase();
-    const contentLower = content.toLowerCase();
-
-    const errorKeywords = [
-        'page not found', '404', 'not found', 'error',
-        'cloudflare', 'firebase hosting', 'github pages',
-        'access denied', 'forbidden', 'unauthorized',
-        'service unavailable', 'maintenance', 'coming soon',
-        'domain for sale', 'parked domain', 'suspended',
-        'default web page', 'welcome to', 'it works',
-        'apache ubuntu default', 'nginx welcome'
-    ];
-
-    if (errorKeywords.some(keyword => titleLower.includes(keyword) || contentLower.includes(keyword))) {
-        return false;
-    }
-
-    // Check content length - very short content might indicate error page
-    const textContent = content.replace(/<[^>]*>/g, '').trim();
-    if (textContent.length < 200 && !textContent.includes(originalHostname.replace('www.', ''))) {
-        return false;
-    }
-
-    return true;
-}
 
 function normalizeUrl(inputUrl) {
     if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
@@ -810,7 +776,7 @@ function calculateAvgWordsPerSentence(text) {
  * Calculate Flesch Reading Ease Score
  * Formula: 206.835 - (1.015 × ASL) - (84.6 × ASW)
  * Where: ASL = Average Sentence Length, ASW = Average Syllables per Word
- * 
+ *
  * Score interpretation:
  * 90-100: Very Easy (5th grade level)
  * 80-89: Easy (6th grade level)
@@ -819,7 +785,7 @@ function calculateAvgWordsPerSentence(text) {
  * 50-59: Fairly Difficult (10th-12th grade level)
  * 30-49: Difficult (College level)
  * 0-29: Very Difficult (Graduate level)
- * 
+ *
  * @param {string} text - The text to analyze
  * @returns {number} Flesch Reading Ease Score (0-100+, can exceed 100 for very simple text)
  */

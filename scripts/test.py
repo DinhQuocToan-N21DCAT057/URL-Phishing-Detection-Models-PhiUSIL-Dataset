@@ -3,7 +3,7 @@ import os
 
 from url_features_extractor import URL_EXTRACTOR
 
-url = "https://sexyyphotooo.weebly.com/"
+url = "http://allegro.36781623972.icu/"
 
 temp = []
 extractor = URL_EXTRACTOR(url)
