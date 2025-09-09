@@ -209,7 +209,6 @@ __marimo__/
 # .csv
 /Dataset
 /test.csv
-/Raw_PhiUSIIL_Phishing_URL_Dataset.csv
 /final_dataset_0_3.csv
 
 # Node JS
