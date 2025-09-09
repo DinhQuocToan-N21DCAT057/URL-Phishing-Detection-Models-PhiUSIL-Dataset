@@ -1,9 +1,9 @@
 import pandas as pd
 import os
 
-from url_features_extractor import URL_EXTRACTOR
+from url_features_extractor_static import URL_EXTRACTOR
 
-url = "https://www.microsoft.com/en-us"
+url = "https://uis.ptithcm.edu.vn/#/home"
 
 temp = []
 extractor = URL_EXTRACTOR(url)
