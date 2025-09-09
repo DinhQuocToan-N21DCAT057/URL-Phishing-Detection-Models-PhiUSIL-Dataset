@@ -31,11 +31,11 @@ if __name__ == '__main__':
         for batch_idx, item in enumerate(sliced_df.itertuples(index=True), 1):
             print("="*150)
             print(f"[{batch_idx}/{len(sliced_df)}] (global idx: {item.Index}) Extracting features for:")
-            print(f"  URL  : {item.url}")
+            print(f"  URL  : {item.URL}")
             print(f"  Label: {item.label}")
-            extractor = URL_EXTRACTOR(item.url, item.label)
+            extractor = URL_EXTRACTOR(item.URL, item.label)
             data = extractor.extract_to_dataset()
-            print(f"  URL '{item.url}' took '{round(extractor.exec_time, 2)}' seconds to extract")
+            print(f"  URL '{item.URL}' took '{round(extractor.exec_time, 2)}' seconds to extract")
             temp.append(data)
 
         print("="*150)
@@ -46,11 +46,11 @@ if __name__ == '__main__':
         for idx, item in enumerate(df.itertuples(index=False), 1):
             print("="*150)
             print(f"[{idx}/{total}] Extracting features for:")
-            print(f"  URL  : {item.url}")
+            print(f"  URL  : {item.URL}")
             print(f"  Label: {item.label}")
-            extractor = URL_EXTRACTOR(item.url, item.label)
+            extractor = URL_EXTRACTOR(item.URL, item.label)
             data = extractor.extract_to_dataset()
-            print(f"  URL '{item.url}' took '{round(extractor.exec_time, 2)}' seconds to extract")
+            print(f"  URL '{item.URL}' took '{round(extractor.exec_time, 2)}' seconds to extract")
             temp.append(data)
 
         print("="*150)
