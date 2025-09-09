@@ -138,7 +138,7 @@ class URL_EXTRACTOR(object):
         self.res = None
 
         # 1. Chạy Puppeteer crawler
-        self.CRAWLER_PATH = os.path.join(BASE_DIR, "nyarlathotep-web-crawler", "crawling_chaos_old.js")
+        self.CRAWLER_PATH = os.path.join(BASE_DIR, "nyarlathotep-web-crawler", "crawling_chaos.js")
         try:
             self.crawling_results = subprocess.run(
                 ["node", self.CRAWLER_PATH, url],

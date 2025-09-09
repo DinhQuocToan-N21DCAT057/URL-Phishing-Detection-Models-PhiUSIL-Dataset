@@ -3,7 +3,7 @@ import os
 
 from url_features_extractor import URL_EXTRACTOR
 
-url = "http://allegro.36781623972.icu/"
+url = "https://www.microsoft.com/en-us"
 
 temp = []
 extractor = URL_EXTRACTOR(url)
