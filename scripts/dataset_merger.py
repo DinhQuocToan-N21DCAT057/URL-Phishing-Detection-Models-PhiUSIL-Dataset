@@ -25,7 +25,7 @@ if __name__ == "__main__":
     df_list = []
     for file_path in all_files:
         try:
-            df = pd.read_csv(file_path)
+            df = pd.read_csv(file_path, sep=";", engine="python", encoding="utf-8")
             df_list.append(df)
         except Exception as e:
             print(f"Error reading '{file_path}': {e}")

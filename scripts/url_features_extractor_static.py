@@ -111,7 +111,6 @@ class URL_EXTRACTOR(object):
         # Các giá trị mặc định để tránh AttributeError
         self.url = url
         self.label = label
-        self.content_features = {}
         self.hostname = ""
         self.domain = ""
         self.subdomain = ""
