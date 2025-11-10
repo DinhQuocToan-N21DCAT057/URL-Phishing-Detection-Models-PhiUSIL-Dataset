@@ -207,6 +207,7 @@ marimo/_lsp/
 __marimo__/
 
 # .csv
+/scripts/merge_files
 /Dataset
 /test.csv
 /final_dataset_0_3.csv
@@ -217,3 +218,10 @@ __marimo__/
 
 # Images
 /screenshots
+/nyarlathotep-web-crawler/screenshots
+
+# models
+/models
+
+scripts/test.py
+scripts/temp.py
