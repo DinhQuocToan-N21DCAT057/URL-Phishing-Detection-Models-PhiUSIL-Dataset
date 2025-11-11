@@ -1,0 +1,57 @@
+{
+    "WORD2VEC_MODEL_PATH": {
+        "file_id": "1r11v925E3dLIhhopumjyb6HdshENZVA7",
+        "filename": "PhiUSIIL_Word2Vec.model",
+        "is_zip": true
+    },
+    "CHAR_TOKENIZER_PATH": {
+        "file_id": "1JkTfPzA3-XYZ123abc",
+        "filename": "PhiUSIIL_Char_Tokenizer.joblib",
+        "is_zip": false
+    },
+    "XGB_MODEL_PATH": {
+        "file_id": "1tEkCGk-4m7bQkjn8e6i1AB59BbET3usM",
+        "filename": "PhiUSIIL_XGB_URL_Embedding.json",
+        "is_zip": false
+    },
+    "RF_MODEL_PATH": {
+        "file_id": "1JkTfPzA3-XYZ123abc",
+        "filename": "word2vec.model",
+        "is_zip": false
+    },
+    "CNN_MODEL_PATH": {
+        "file_id": "1JkTfPzA3-XYZ123abc",
+        "filename": "word2vec.model",
+        "is_zip": false
+    },
+    "CNN_LSTM_PATH": {
+        "file_id": "1JkTfPzA3-XYZ123abc",
+        "filename": "word2vec.model",
+        "is_zip": false
+    },
+    "CHAR_CNN_PATH": {
+        "file_id": "1JkTfPzA3-XYZ123abc",
+        "filename": "word2vec.model",
+        "is_zip": false
+    },
+    "CHAR_CNN_LSTM_PATH": {
+        "file_id": "1JkTfPzA3-XYZ123abc",
+        "filename": "word2vec.model",
+        "is_zip": false
+    },
+    "CNN_HYBRID_PATH": {
+        "file_id": "1JkTfPzA3-XYZ123abc",
+        "filename": "word2vec.model",
+        "is_zip": false
+    },
+    "ALBERT_PATH": {
+        "file_id": "1gLar47XJH4aU68aWD43bk-A4TbmNucbe",
+        "filename": "PhiUSIIL_ALBERT_Tranning_Result",
+        "is_zip": true
+    },
+    "MOBILE_BERT_PATH": {
+        "file_id": "1JkTfPzA3-XYZ123abc",
+        "filename": "word2vec.model",
+        "is_zip": true
+    }
+}
