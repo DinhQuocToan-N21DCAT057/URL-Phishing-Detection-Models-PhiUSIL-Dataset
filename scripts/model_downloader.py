@@ -7,6 +7,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 warnings.filterwarnings("ignore")
 
+
 class ModelDownloader:
     def __init__(self):
         self.cfg = Paths()

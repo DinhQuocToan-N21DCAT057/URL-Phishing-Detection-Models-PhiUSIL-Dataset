@@ -7,6 +7,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 warnings.filterwarnings("ignore")
 
+
 class Paths:
     """Quản lý toàn bộ đường dẫn và ánh xạ model theo JSON cấu hình."""
 
@@ -16,17 +17,17 @@ class Paths:
 
     # Các key tương ứng với loại model
     MODEL_KEYS = [
-        "WORD2VEC_MODEL_PATH",
-        "CHAR_TOKENIZER_PATH",
-        "XGB_MODEL_PATH",
-        "RF_MODEL_PATH",
-        "CNN_MODEL_PATH",
-        "CNN_LSTM_PATH",
-        "CHAR_CNN_PATH",
-        "CHAR_CNN_LSTM_PATH",
-        "CNN_HYBRID_PATH",
-        "ALBERT_PATH",
-        "MOBILE_BERT_PATH",
+        "WORD2VEC",
+        "CHAR_TOKENIZER",
+        "XGB",
+        "RF",
+        "CNN",
+        "CNN_LSTM",
+        "CHAR_CNN",
+        "CHAR_CNN_LSTM",
+        "CNN_HYBRID",
+        "ALBERT",
+        "MOBILE_BERT",
     ]
 
     # Nạp JSON map khi khởi tạo
