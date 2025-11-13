@@ -53,5 +53,10 @@
         "file_id": "1SCVuua53tAYamIQCECOtcnjDYvQmztuE",
         "filename": "PhiUSIIL_MobileBERT",
         "is_zip": true
+    },
+    "FIREBASE": {
+        "credential_file": "phiusiil-url-phishing-database-firebase-adminsdk-fbsvc-510e06e3aa.json",
+        "project_id": "phiusiil-url-phishing-database",
+        "collections": "predictions"
     }
 }

@@ -1,4 +1,4 @@
-from config import Paths
+from configs import Paths
 import os, gdown, zipfile
 import logging
 import warnings
