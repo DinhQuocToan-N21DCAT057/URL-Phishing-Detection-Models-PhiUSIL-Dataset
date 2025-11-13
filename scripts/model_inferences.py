@@ -4,13 +4,18 @@ import logging
 import warnings
 import time
 import numpy as np
-import hashlib
-import json
 import joblib
 import torch
+import re
 
-from functools import wraps
+from urllib.parse import urlparse
+from gensim.models import Word2Vec
+from xgboost import XGBClassifier
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import load_model
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from model_downloader import ModelDownloader
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -19,12 +24,8 @@ warnings.filterwarnings("ignore")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 loader = ModelDownloader()
 
-from gensim.models import Word2Vec
-from urllib.parse import urlparse
-import re
 
-
-class W2Vec:
+class W2VecInference:
     """PhiUSIIL Word2Vec"""
     _instance = None
     _lock = threading.Lock()
@@ -34,7 +35,7 @@ class W2Vec:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(W2Vec, cls).__new__(cls)
+                    cls._instance = super(W2VecInference, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, url, dim=50):
@@ -75,7 +76,7 @@ class W2Vec:
 
         tokens = domain_parts + path_parts + query_parts
         # Lọc ký tự đặc biệt
-        clean_tokens = [re.sub(r'[^a-z0-9\-\/.=]', '', t) for t in tokens if t]
+        clean_tokens = [re.sub(r'[^a-z0-9\-/.=]', '', t) for t in tokens if t]
         self._tokens.extend(clean_tokens)
 
         return self._tokens
@@ -91,10 +92,7 @@ class W2Vec:
         return vec
 
 
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-
-
-class CharTokenizer:
+class CharTokenizerInference:
     """PhiUSIIL CharTokenizer"""
     _instance = None
     _lock = threading.Lock()
@@ -104,7 +102,7 @@ class CharTokenizer:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(CharTokenizer, cls).__new__(cls)
+                    cls._instance = super(CharTokenizerInference, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, url, max_len=200):
@@ -139,10 +137,7 @@ class CharTokenizer:
         return len(self.get_tokenizer().word_index) + 1
 
 
-from xgboost import XGBClassifier
-
-
-class XGBoost:
+class XGBoostInference:
     """PhiUSIIL XGBoost"""
     _instance = None
     _lock = threading.Lock()
@@ -152,7 +147,7 @@ class XGBoost:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(XGBoost, cls).__new__(cls)
+                    cls._instance = super(XGBoostInference, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, url):
@@ -177,29 +172,14 @@ class XGBoost:
             return cls._model
 
     def predict(self, threshold=0.5):
-        w2v = W2Vec(self._url)
+        w2v = W2VecInference(self._url)
         vector = w2v.get_vector().reshape(1, -1)
         proba = self._get_model().predict_proba(vector)[0][1]
         pred = int(proba >= threshold)
         return pred, proba
 
-    def predict_json(self, threshold=0.5):
-        """Trả kết quả dự đoán theo format JSON chuẩn."""
-        pred, proba = self.predict(threshold)
-        sha256_hash = hashlib.sha256(self._url.encode()).hexdigest()
-        result = {
-            sha256_hash: {
-                "url": self._url,
-                "pred": pred,
-                "proba": round(float(proba), 4),
-                "threshold": threshold
-            }
-        }
 
-        return json.dumps(result, indent=4)
-
-
-class RF:
+class RFInference:
     """PhiUSIIL Random Forest"""
     _instance = None
     _lock = threading.Lock()
@@ -209,7 +189,7 @@ class RF:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(RF, cls).__new__(cls)
+                    cls._instance = super(RFInference, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, url):
@@ -233,32 +213,14 @@ class RF:
             return cls._model
 
     def predict(self, threshold=0.5):
-        w2v = W2Vec(self._url)
+        w2v = W2VecInference(self._url)
         vector = w2v.get_vector().reshape(1, -1)
         proba = self._get_model().predict_proba(vector)[0][1]
         pred = int(proba >= threshold)
         return pred, proba
 
-    def predict_json(self, threshold=0.5):
-        """Trả kết quả dự đoán theo format JSON chuẩn."""
-        pred, proba = self.predict(threshold)
-        sha256_hash = hashlib.sha256(self._url.encode()).hexdigest()
-        result = {
-            sha256_hash: {
-                "url": self._url,
-                "pred": pred,
-                "proba": round(float(proba), 4),
-                "threshold": threshold
-            }
-        }
 
-        return json.dumps(result, indent=4)
-
-
-from tensorflow.keras.models import load_model
-
-
-class CharCNN:
+class CharCNNInference:
     """PhiUSIIL CharCNN"""
     _instance = None
     _lock = threading.Lock()
@@ -268,7 +230,7 @@ class CharCNN:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(CharCNN, cls).__new__(cls)
+                    cls._instance = super(CharCNNInference, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, url):
@@ -292,7 +254,7 @@ class CharCNN:
             return cls._model
 
     def predict(self, threshold=0.5):
-        tokenizer = CharTokenizer(self._url)
+        tokenizer = CharTokenizerInference(self._url)
         seq = tokenizer.get_padded_sequence()
         preds = self._get_model().predict(seq, verbose=0)
         proba = float(preds[0][0])
@@ -300,23 +262,8 @@ class CharCNN:
         pred = int(proba >= threshold)
         return pred, proba
 
-    def predict_json(self, threshold=0.5):
-        """Trả kết quả dự đoán theo format JSON chuẩn."""
-        pred, proba = self.predict(threshold)
-        sha256_hash = hashlib.sha256(self._url.encode()).hexdigest()
-        result = {
-            sha256_hash: {
-                "url": self._url,
-                "pred": pred,
-                "proba": round(float(proba), 4),
-                "threshold": threshold
-            }
-        }
 
-        return json.dumps(result, indent=4)
-
-
-class CharCNN_LSTM:
+class CharCNNLSTMInference:
     """PhiUSIIL CharCNN-LSTM"""
     _instance = None
     _lock = threading.Lock()
@@ -326,7 +273,7 @@ class CharCNN_LSTM:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(CharCNN_LSTM, cls).__new__(cls)
+                    cls._instance = super(CharCNNLSTMInference, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, url):
@@ -350,7 +297,7 @@ class CharCNN_LSTM:
             return cls._model
 
     def predict(self, threshold=0.5):
-        tokenizer = CharTokenizer(self._url)
+        tokenizer = CharTokenizerInference(self._url)
         seq = tokenizer.get_padded_sequence()
         preds = self._get_model().predict(seq, verbose=0)
         proba = float(preds[0][0])
@@ -358,23 +305,8 @@ class CharCNN_LSTM:
         pred = int(proba >= threshold)
         return pred, proba
 
-    def predict_json(self, threshold=0.5):
-        """Trả kết quả dự đoán theo format JSON chuẩn."""
-        pred, proba = self.predict(threshold)
-        sha256_hash = hashlib.sha256(self._url.encode()).hexdigest()
-        result = {
-            sha256_hash: {
-                "url": self._url,
-                "pred": pred,
-                "proba": round(float(proba), 4),
-                "threshold": threshold
-            }
-        }
 
-        return json.dumps(result, indent=4)
-
-
-class CNN_Hybrid:
+class CNNHybridInference:
     """PhiUSIIL CNN Hybrid"""
     _instance = None
     _lock = threading.Lock()
@@ -384,7 +316,7 @@ class CNN_Hybrid:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(CNN_Hybrid, cls).__new__(cls)
+                    cls._instance = super(CNNHybridInference, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, url):
@@ -408,37 +340,18 @@ class CNN_Hybrid:
             return cls._model
 
     def predict(self, threshold=0.5):
-        tokenizer = CharTokenizer(self._url)
-        w2v = W2Vec(self._url)
+        tokenizer = CharTokenizerInference(self._url)
+        w2v = W2VecInference(self._url)
         seq = tokenizer.get_padded_sequence()
         vec = w2v.get_vector().reshape(1, -1)
-        print(seq, vec)
         preds = self._get_model().predict([seq, vec], verbose=0)
         proba = float(preds[0][0])
 
         pred = int(proba >= threshold)
         return pred, proba
 
-    def predict_json(self, threshold=0.5):
-        """Trả kết quả dự đoán theo format JSON chuẩn."""
-        pred, proba = self.predict(threshold)
-        sha256_hash = hashlib.sha256(self._url.encode()).hexdigest()
-        result = {
-            sha256_hash: {
-                "url": self._url,
-                "pred": pred,
-                "proba": round(float(proba), 4),
-                "threshold": threshold
-            }
-        }
 
-        return json.dumps(result, indent=4)
-
-
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-
-
-class ALBERT:
+class ALBERTInference:
     """PhiUSIIL ALBERT"""
     _instance = None
     _lock = threading.Lock()
@@ -449,7 +362,7 @@ class ALBERT:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(ALBERT, cls).__new__(cls)
+                    cls._instance = super(ALBERTInference, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, url, max_len=128):
@@ -490,7 +403,7 @@ class ALBERT:
                 cls._model = cls._load_model()
             return cls._model
 
-    def predict(self):
+    def predict(self, threshold=0.5):
         """Trả về (pred_label:int, probs:tensor[1,2])."""
         tokenizer = self._get_tokenizer()
         model = self._get_model()
@@ -503,28 +416,12 @@ class ALBERT:
             outputs = model(**inputs)
             probs = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
             pred = torch.argmax(probs).item()
+            prob = probs[0].item() if pred == 0 else probs[1].item()
 
-        return pred, probs
-
-    def predict_json(self):
-        """Trả kết quả theo format JSON chuẩn."""
-        pred, probs = self.predict()
-        phish_prob, benign_prob = probs[0].item(), probs[1].item()
-        sha256_hash = hashlib.sha256(self._url.encode()).hexdigest()
-
-        result = {
-            sha256_hash: {
-                "url": self._url,
-                "pred": pred,
-                "phish_proba": round(phish_prob, 4),
-                "benign_proba": round(benign_prob, 4)
-            }
-        }
-
-        return json.dumps(result, indent=4)
+        return pred, prob
 
 
-class MobileBERT:
+class MobileBERTInference:
     """PhiUSIIL MobileBERT"""
     _instance = None
     _lock = threading.Lock()
@@ -535,7 +432,7 @@ class MobileBERT:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(MobileBERT, cls).__new__(cls)
+                    cls._instance = super(MobileBERTInference, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, url, max_len=128):
@@ -576,7 +473,7 @@ class MobileBERT:
                 cls._model = cls._load_model()
             return cls._model
 
-    def predict(self):
+    def predict(self, threshold=0.5):
         """Trả về (pred_label:int, probs:tensor[1,2])."""
         tokenizer = self._get_tokenizer()
         model = self._get_model()
@@ -589,25 +486,6 @@ class MobileBERT:
             outputs = model(**inputs)
             probs = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
             pred = torch.argmax(probs).item()
+            prob = probs[0].item() if pred == 0 else probs[1].item()
 
-        return pred, probs
-
-    def predict_json(self):
-        """Trả kết quả theo format JSON chuẩn."""
-        pred, probs = self.predict()
-        phish_prob, benign_prob = probs[0].item(), probs[1].item()
-        sha256_hash = hashlib.sha256(self._url.encode()).hexdigest()
-
-        result = {
-            sha256_hash: {
-                "url": self._url,
-                "pred": pred,
-                "phish_proba": round(phish_prob, 4),
-                "benign_proba": round(benign_prob, 4)
-            }
-        }
-
-        return json.dumps(result, indent=4)
-
-
-
+        return pred, prob

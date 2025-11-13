@@ -223,5 +223,8 @@ __marimo__/
 # models
 /models
 
+#secrets
+/secrets
+
 scripts/test.py
 scripts/temp.py
