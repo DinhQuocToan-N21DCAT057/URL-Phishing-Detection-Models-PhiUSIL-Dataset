@@ -6,9 +6,9 @@ import logging
 import warnings
 
 from model_inferences import (
-    XGBoostInference, RFInference, CharCNNInference,
-    CharCNNLSTMInference, CNNHybridInference,
-    ALBERTInference, MobileBERTInference
+    XGBoostInference, RFInference,
+    WordCNNInference, WordCNNLSTMInference, CharCNNInference, CharCNNLSTMInference, CNNHybridInference,
+    ALBERTInference, MobileBERTInference, TinyLlamaInference
 )
 from configs import FirebaseConfigs
 from firebase_client import FirebaseClient
@@ -20,11 +20,14 @@ warnings.filterwarnings("ignore")
 INFERENCE_MAP = {
     "xgb": XGBoostInference,
     "rf": RFInference,
+    "wordcnn": WordCNNInference,
+    "wordcnn_lstm": WordCNNLSTMInference,
     "charcnn": CharCNNInference,
     "charcnn_lstm": CharCNNLSTMInference,
     "cnn_hybrid": CNNHybridInference,
     "albert": ALBERTInference,
     "mobile_bert": MobileBERTInference,
+    "tiny_llama": TinyLlamaInference,
 }
 
 app = Flask(__name__)

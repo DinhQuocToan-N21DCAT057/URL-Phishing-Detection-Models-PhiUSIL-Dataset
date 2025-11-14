@@ -15,9 +15,9 @@ from gensim.models import Word2Vec
 from xgboost import XGBClassifier
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import load_model
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM
+from peft import PeftModel
 from model_downloader import ModelDownloader
-
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -218,6 +218,92 @@ class RFInference:
         w2v = W2VecInference(self._url)
         vector = w2v.get_vector().reshape(1, -1)
         proba = self._get_model().predict_proba(vector)[0][1]
+        pred = int(proba >= threshold)
+        return pred, proba
+
+
+class WordCNNInference:
+    """PhiUSIIL WordCNN"""
+    _instance = None
+    _lock = threading.Lock()
+    _model = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(WordCNNInference, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, url):
+        self._url = url
+
+    @classmethod
+    def _load_model(cls):
+        """Load WordCNN model từ file config."""
+        loader.download_single("WORD_CNN")
+        model_path = loader.cfg.paths["WORD_CNN"]["full_path"]
+        model = load_model(model_path)
+        logging.info(f"✅ WordCNN model loaded successfully from {model_path}")
+        return model
+
+    @classmethod
+    def _get_model(cls):
+        """Lấy instance WordCNN (cache)."""
+        with cls._lock:
+            if cls._model is None or reload:
+                cls._model = cls._load_model()
+            return cls._model
+
+    def predict(self, threshold=0.5):
+        w2v = W2VecInference(self._url)
+        vector = w2v.get_vector().reshape(1, -1)
+        preds = self._get_model().predict(vector, verbose=0)
+        proba = float(preds[0][0])
+
+        pred = int(proba >= threshold)
+        return pred, proba
+
+
+class WordCNNLSTMInference:
+    """PhiUSIIL WordCNN_LSTM"""
+    _instance = None
+    _lock = threading.Lock()
+    _model = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(WordCNNLSTMInference, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, url):
+        self._url = url
+
+    @classmethod
+    def _load_model(cls):
+        """Load WordCNN model từ file config."""
+        loader.download_single("WORD_CNN_LSTM")
+        model_path = loader.cfg.paths["WORD_CNN_LSTM"]["full_path"]
+        model = load_model(model_path)
+        logging.info(f"✅ WordCNN_LSTM model loaded successfully from {model_path}")
+        return model
+
+    @classmethod
+    def _get_model(cls):
+        """Lấy instance WordCNN_LSTM (cache)."""
+        with cls._lock:
+            if cls._model is None or reload:
+                cls._model = cls._load_model()
+            return cls._model
+
+    def predict(self, threshold=0.5):
+        w2v = W2VecInference(self._url)
+        vector = w2v.get_vector().reshape(1, -1)
+        preds = self._get_model().predict(vector, verbose=0)
+        proba = float(preds[0][0])
+
         pred = int(proba >= threshold)
         return pred, proba
 
@@ -491,3 +577,117 @@ class MobileBERTInference:
             prob = probs[0].item() if pred == 0 else probs[1].item()
 
         return pred, prob
+
+
+class TinyLlamaInference:
+    """PhiUSIIL TinyLlama LoRA"""
+    _instance = None
+    _lock = threading.Lock()
+    _model = None
+    _tokenizer = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(TinyLlamaInference, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, url, max_len=256):
+        self._url = url
+        self._max_len = max_len
+
+    @classmethod
+    def _load_tokenizer(cls):
+        """Load tokenizer TinyLlama + LoRA checkpoint."""
+        loader.download_single("TINY_LLAMA_LORA")
+        model_path = loader.cfg.paths["TINY_LLAMA_LORA"]["full_path"]
+
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        tokenizer.pad_token = tokenizer.eos_token
+
+        logging.info(f"✅ TinyLlama tokenizer loaded from {model_path}")
+        return tokenizer
+
+    @classmethod
+    def _load_model(cls):
+        """Load TinyLlama LoRA model."""
+        loader.download_single("TINY_LLAMA_BASE")
+        base_model_path = loader.cfg.paths["TINY_LLAMA_BASE"]["full_path"]
+        loader.download_single("TINY_LLAMA_LORA")
+        lora_path = loader.cfg.paths["TINY_LLAMA_LORA"]["full_path"]
+
+        base_model = AutoModelForCausalLM.from_pretrained(
+            base_model_path,
+            torch_dtype=torch.float16,
+            device_map="auto"
+        )
+        logging.info(f"✅ TinyLlama model loaded from {base_model_path}")
+
+        # Load LoRA adapter
+        model = PeftModel.from_pretrained(
+            base_model,
+            lora_path,
+            torch_dtype=torch.float16
+        )
+        logging.info(f"✅ TinyLlama LoRA loaded from {lora_path}")
+
+        model = model.to(device)
+        return model
+
+    @classmethod
+    def _get_tokenizer(cls, reload=False):
+        with cls._lock:
+            if cls._tokenizer is None or reload:
+                cls._tokenizer = cls._load_tokenizer()
+            return cls._tokenizer
+
+    @classmethod
+    def _get_model(cls, reload=False):
+        with cls._lock:
+            if cls._model is None or reload:
+                cls._model = cls._load_model()
+            return cls._model
+
+    def predict(self, threshold=0.5):
+        tokenizer = self._get_tokenizer()
+        model = self._get_model()
+
+        # Chat template đúng lúc training
+        messages = [
+            {"role": "system",
+             "content": "You are a cybersecurity assistant that classifies URLs as phishing or benign."},
+            {"role": "user", "content": f"Classify the following URL:\n{self._url}"}
+        ]
+
+        inputs = tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            return_dict=True,
+            return_tensors="pt",
+        ).to(device)
+
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=1,
+                temperature=0.0,
+                top_p=0.0,
+                repetition_penalty=1.0
+            )
+
+        # Decode phần model generate
+        answer = tokenizer.decode(
+            outputs[0][inputs["input_ids"].shape[-1]:],
+            skip_special_tokens=True
+        ).strip().lower()
+        # Clean output
+        answer = answer.replace(".", "").replace("?", "").strip()
+
+        if answer.startswith("ph"):
+            return 0, 0.95
+        if answer.startswith("ben"):
+            return 1, 0.95
+
+        # fallback
+        return 0, 0.0
