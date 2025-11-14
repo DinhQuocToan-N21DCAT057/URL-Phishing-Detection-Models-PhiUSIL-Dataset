@@ -37,13 +37,15 @@ class Paths:
         "CHAR_TOKENIZER",
         "XGB",
         "RF",
-        "CNN",
-        "CNN_LSTM",
+        "WORD_CNN",
+        "WORD_CNN_LSTM",
         "CHAR_CNN",
         "CHAR_CNN_LSTM",
         "CNN_HYBRID",
         "ALBERT",
         "MOBILE_BERT",
+        "TINY_LLAMA_BASE",
+        "TINY_LLAMA_LORA",
     ]
 
     # Nạp JSON map khi khởi tạo

@@ -19,14 +19,14 @@
         "filename": "PhiUSIIL_RF_URL_Embedding.pkl",
         "is_zip": false
     },
-    "CNN": {
-        "file_id": "1JkTfPzA3-XYZ123abc",
-        "filename": "cnn.keras",
+    "WORD_CNN": {
+        "file_id": "1YW5feX3nfPRRRWMu7GFj4AI8OYvMlsB0",
+        "filename": "PhiUSIIL_WordCNN_URL_Embedding.keras",
         "is_zip": false
     },
-    "CNN_LSTM": {
-        "file_id": "1JkTfPzA3-XYZ123abc",
-        "filename": "word2vec.model",
+    "WORD_CNN_LSTM": {
+        "file_id": "1GYfpLGzbNvINqx6SQj_TzSTsUpfyLYTj",
+        "filename": "PhiUSIIL_WordCNN_LSTM_URL_Embedding.keras",
         "is_zip": false
     },
     "CHAR_CNN": {
@@ -54,8 +54,18 @@
         "filename": "PhiUSIIL_MobileBERT",
         "is_zip": true
     },
+    "TINY_LLAMA_BASE": {
+        "file_id": "1PF-rDxlcUTtKlsDO0TjKP_bRX-r8ljbY",
+        "filename": "TinyLlama-1.1B-Chat-v1.0",
+        "is_zip": true
+    },
+    "TINY_LLAMA_LORA": {
+        "file_id": "1infdpBQJox7Qwmq64tuFs4xSfljdsdlm",
+        "filename": "PhiUSIIL_TinyLlama_LoRA",
+        "is_zip": true
+    },
     "FIREBASE": {
-        "credential_file": "phiusiil-url-phishing-database-firebase-adminsdk-fbsvc-a514f3d602.json",
+        "credential_file": "phiusiil-url-phishing-database-firebase-adminsdk-fbsvc-510e06e3aa.json",
         "project_id": "phiusiil-url-phishing-database",
         "collections": "predictions"
     }
