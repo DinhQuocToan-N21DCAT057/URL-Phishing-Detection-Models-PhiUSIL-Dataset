@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "PhiUSIIL URL Phishing Detector",
+  "version": "1.0.0",
+  "description": "Dùng API PhiUSIIL (Flask) để dự đoán URL phishing ngay trên trình duyệt.",
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8000/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "PhiUSIIL Phishing Detector"
+  }
+}
