@@ -27,7 +27,8 @@ label {
   color: #bbbbbb;
 }
 
-input, select {
+input,
+select {
   width: 100%;
   box-sizing: border-box;
   padding: 4px 6px;
@@ -78,7 +79,8 @@ button:disabled {
   color: #eceff1;
 }
 
-.result, .error {
+.result,
+.error {
   font-size: 12px;
   border-radius: 4px;
   padding: 6px 8px;
