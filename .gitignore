@@ -223,6 +223,9 @@ __marimo__/
 # models
 /models
 
+#map
+path_map.json
+
 #secrets
 /secrets
 

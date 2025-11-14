@@ -1,4 +1,4 @@
-from configs import Paths
+from configs import Paths, ROOT_DIR
 import os, gdown, zipfile
 import logging
 import warnings
@@ -51,7 +51,7 @@ class ModelDownloader:
         logging.warning(f"🚨 Missing model: {key} → {full_path}")
 
         if is_zip:
-            zip_temp = os.path.join(self.cfg.ROOT_DIR, f"{key}_temp.zip")
+            zip_temp = os.path.join(ROOT_DIR, f"{key}_temp.zip")
             self._download_from_drive(file_id, zip_temp)
             self._extract_zip(zip_temp, os.path.dirname(full_path))
         else:
