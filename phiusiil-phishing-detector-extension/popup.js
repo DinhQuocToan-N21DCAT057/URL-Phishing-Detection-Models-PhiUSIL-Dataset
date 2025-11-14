@@ -1,13 +1,11 @@
-const API_BASE = "http://127.0.0.1:8000/predict";
-
 const els = {};
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // Cache element
   els.currentUrl = document.getElementById("current-url");
   els.modelSelect = document.getElementById("model-select");
   els.thresholdInput = document.getElementById("threshold-input");
-  els.scanBtn = document.getElementById("scan-btn");
+  els.rescanBtn = document.getElementById("rescan-btn");
+
   els.status = document.getElementById("status");
   els.result = document.getElementById("result");
   els.error = document.getElementById("error");
@@ -20,7 +18,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   els.resCreated = document.getElementById("res-created");
   els.resUrl = document.getElementById("res-url");
 
-  // Load config đã lưu (model, threshold)
+  // load config từ storage
   chrome.storage.sync.get(["phiusiil_model", "phiusiil_threshold"], (data) => {
     if (data.phiusiil_model) {
       els.modelSelect.value = data.phiusiil_model;
@@ -30,14 +28,47 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Lấy URL tab hiện tại
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tabUrl = tab && tab.url ? tab.url : "";
-  els.currentUrl.textContent = tabUrl || "(Không lấy được URL)";
-  els.resUrl.textContent = tabUrl;
+  els.modelSelect.addEventListener("change", saveConfig);
+  els.thresholdInput.addEventListener("change", saveConfig);
 
-  els.scanBtn.addEventListener("click", () => runScan(tabUrl));
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tabId = tab ? tab.id : null;
+  const url = tab && tab.url ? tab.url : "";
+  els.currentUrl.textContent = url || "(Không lấy được URL)";
+  els.resUrl.textContent = url;
+
+  if (tabId == null) {
+    setError("Không lấy được thông tin tab hiện tại.");
+    return;
+  }
+
+  // lấy kết quả auto-scan từ background
+  requestCurrentResult(tabId);
+
+  // nút quét lạ
+  els.rescanBtn.addEventListener("click", () => {
+    setStatus("loading", "Đang quét lại...");
+    chrome.runtime.sendMessage(
+      { type: "phiusiil_rescan", tabId },
+      () => {
+        // sau khi rescan xong, lấy lại kết quả
+        setTimeout(() => requestCurrentResult(tabId), 300);
+      }
+    );
+  });
 });
+
+function saveConfig() {
+  let threshold = parseFloat(els.thresholdInput.value);
+  if (Number.isNaN(threshold)) threshold = 0.6;
+  threshold = Math.min(Math.max(threshold, 0), 1);
+  els.thresholdInput.value = threshold.toFixed(2);
+
+  chrome.storage.sync.set({
+    phiusiil_model: els.modelSelect.value,
+    phiusiil_threshold: threshold
+  });
+}
 
 function setStatus(type, message) {
   els.status.classList.remove("hidden", "safe", "phishing", "loading");
@@ -54,86 +85,63 @@ function clearMessages() {
   els.result.classList.add("hidden");
 }
 
-async function runScan(url) {
+function setError(msg) {
   clearMessages();
-
-  if (!url) {
-    els.error.textContent = "Không lấy được URL tab hiện tại.";
-    els.error.classList.remove("hidden");
-    return;
-  }
-
-  const model = els.modelSelect.value;
-  let threshold = parseFloat(els.thresholdInput.value);
-  if (Number.isNaN(threshold)) threshold = 0.5;
-  threshold = Math.min(Math.max(threshold, 0), 1);
-
-  // Lưu cấu hình
-  chrome.storage.sync.set({
-    phiusiil_model: model,
-    phiusiil_threshold: threshold
-  });
-
-  els.thresholdInput.value = threshold.toFixed(2);
-
-  setStatus("loading", "Đang gửi tới API...");
-  els.scanBtn.disabled = true;
-
-  try {
-    const payload = {
-      url: url,
-      model: model,
-      threshold: threshold
-    };
-
-    const res = await fetch(API_BASE, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`API trả về HTTP ${res.status}: ${text}`);
-    }
-
-    const data = await res.json();
-    showResult(data, threshold);
-  } catch (err) {
-    els.error.textContent = "Lỗi gọi API: " + err.message;
-    els.error.classList.remove("hidden");
-    setStatus("phishing", "Không đánh giá được – kiểm tra API.");
-  } finally {
-    els.scanBtn.disabled = false;
-  }
+  els.error.textContent = msg;
+  els.error.classList.remove("hidden");
 }
 
-function showResult(data, threshold) {
-  const pred = Number(data.pred) || 0;      // 0 = benign, 1 = phishing
-  const proba = Number(data.proba) || 0;
-  const model = data.model || "?";
-  const cached = !!data.cached;
-  const createdAt = data.created_at || "";
-  const url = data.url || "";
+function requestCurrentResult(tabId) {
+  clearMessages();
+  setStatus("loading", "Đang lấy kết quả auto-scan...");
 
-  const isPhishing = pred === 1;
+  chrome.runtime.sendMessage(
+    { type: "phiusiil_get_result", tabId },
+    (response) => {
+      if (!response || !response.result) {
+        setStatus("loading", "Chưa có kết quả (đang quét hoặc lỗi).");
+        return;
+      }
+
+      const result = response.result;
+      if (result.error) {
+        setError("Lỗi API: " + result.error);
+        setStatus("phishing", "Không đánh giá được – kiểm tra API.");
+        return;
+      }
+
+      showResult(result);
+    }
+  );
+}
+
+function showResult(result) {
+  const pred = Number(result.pred); // 0 = phishing, 1 = benign
+  const proba = Number(result.proba) || 0;
+  const threshold = Number(result.threshold) || 0.6;
+  const cached = !!result.cached;
+  const model = result.model || "?";
+  const createdAt = result.created_at || "";
+  const url = result.url || "";
+
+  const isPhishing = pred === 0;
 
   if (isPhishing) {
     setStatus(
       "phishing",
-      ` Phishing / URL đáng ngờ (p = ${proba.toFixed(3)})`
+      `️ Phishing / URL đáng ngờ (label = 0, p = ${proba.toFixed(3)})`
     );
   } else {
     setStatus(
       "safe",
-      ` Có vẻ an toàn (p = ${proba.toFixed(3)})`
+      ` Benign / Có vẻ an toàn (label = 1, p = ${proba.toFixed(3)})`
     );
   }
 
   els.resModel.textContent = model;
-  els.resPred.textContent = isPhishing ? "1 (phishing)" : "0 (benign)";
+  els.resPred.textContent = isPhishing
+    ? "0 (phishing / suspicious)"
+    : "1 (benign / likely safe)";
   els.resProba.textContent = proba.toFixed(4);
   els.resThreshold.textContent = threshold.toFixed(2);
   els.resCached.textContent = cached ? "Yes (dùng cache Firestore)" : "No (dự đoán mới)";
@@ -150,6 +158,5 @@ function showResult(data, threshold) {
   }
 
   els.resUrl.textContent = url;
-
   els.result.classList.remove("hidden");
 }
