@@ -17,7 +17,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import load_model
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM
 from peft import PeftModel
-from model_downloader import ModelDownloader
+from scripts.model_downloader import ModelDownloader
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")

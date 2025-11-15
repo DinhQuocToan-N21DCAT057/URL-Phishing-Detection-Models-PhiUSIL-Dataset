@@ -1,4 +1,3 @@
-# firebase_client.py
 import os
 from datetime import datetime, timedelta
 import firebase_admin
