@@ -86,8 +86,6 @@ class Paths:
 
 
 class FirebaseConfigs:
-    FIREBASE_PROJECT = ""
-    FIRESTORE_COLLECTION = "predictions"
 
     def __init__(self):
         self.path_map = load_path_map()
@@ -96,7 +94,11 @@ class FirebaseConfigs:
     def _get_firebase_info(self):
         temp = self.path_map.get("FIREBASE")
         if temp:
-            credential_file = temp.get("credential_file", "")
+            firebase_cred_env = os.getenv("")
+            if firebase_cred_env:
+                credential_file = firebase_cred_env
+            else:
+                credential_file = temp.get("credential_file", "")
             cred_path = os.path.join(SECRETS_DIR, credential_file)
             info = {
                 "cred_path": cred_path,

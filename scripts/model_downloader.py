@@ -1,7 +1,10 @@
-from configs import Paths, ROOT_DIR
-import os, gdown, zipfile
+import gdown
 import logging
+import os
 import warnings
+import zipfile
+
+from scripts.configs import Paths, ROOT_DIR
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
