@@ -5,13 +5,22 @@ import hashlib
 import logging
 import warnings
 
-from scripts.model_inferences import (
-    XGBoostInference, RFInference,
-    WordCNNInference, WordCNNLSTMInference, CharCNNInference, CharCNNLSTMInference, CNNHybridInference,
-    ALBERTInference, MobileBERTInference, TinyLlamaInference
-)
-from scripts.configs import FirebaseConfigs
-from scripts.firebase_client import FirebaseClient
+try:
+    from scripts.model_inferences import (
+        XGBoostInference, RFInference,
+        WordCNNInference, WordCNNLSTMInference, CharCNNInference, CharCNNLSTMInference, CNNHybridInference,
+        ALBERTInference, MobileBERTInference, TinyLlamaInference
+    )
+    from scripts.configs import FirebaseConfigs
+    from scripts.firebase_client import FirebaseClient
+except ModuleNotFoundError:
+    from model_inferences import (
+        XGBoostInference, RFInference,
+        WordCNNInference, WordCNNLSTMInference, CharCNNInference, CharCNNLSTMInference, CNNHybridInference,
+        ALBERTInference, MobileBERTInference, TinyLlamaInference
+    )
+    from configs import FirebaseConfigs
+    from firebase_client import FirebaseClient
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
