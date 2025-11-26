@@ -226,5 +226,7 @@ __marimo__/
 #secrets
 /secrets
 
+/deploy-aws-lambda-full.bat
+
 scripts/test.py
 scripts/temp.py
