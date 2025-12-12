@@ -3,6 +3,9 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+#VS Code workspace settings
+.vscode/
+
 # C extensions
 *.so
 
@@ -222,6 +225,9 @@ __marimo__/
 
 # models
 /models
+
+#Colab
+/colab
 
 #secrets
 /secrets
