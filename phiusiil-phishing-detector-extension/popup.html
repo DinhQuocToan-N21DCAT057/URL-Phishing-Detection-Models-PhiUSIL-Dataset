@@ -67,12 +67,23 @@
         <span id="res-created"></span>
       </div>
       <div class="row">
-        <span class="label">URL:</span>
+        <span class="label">URL đã quet:</span>
         <span id="res-url" class="mono small"></span>
+      </div>
+      <div class="row hidden">
+        <span class="label">URL Gốc:</span>
+        <span id="res-original-url" class="mono small" style="word-break: break-all; color: #666;"></span>
       </div>
       <div class="row">
         <span class="label">Ghi chú:</span>
         <span class="mono small">0 = phishing, 1 = benign</span>
+      </div>
+      <div class="control-group">
+        <label>Chế độ quét:</label>
+          <select id="scanMode">
+            <option value="full">Toàn bộ URL (An toàn)</option>
+            <option value="domain">Chỉ Domain (Ít cảnh báo)</option>
+          </select>
       </div>
     </div>
 

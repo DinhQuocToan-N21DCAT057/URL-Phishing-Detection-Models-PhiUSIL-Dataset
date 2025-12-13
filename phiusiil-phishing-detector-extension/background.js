@@ -3,14 +3,15 @@ const API_BASE = "http://127.0.0.1:8000/predict";
 // giá trị default nếu chưa cấu hình
 const DEFAULT_MODEL = "rf";
 const DEFAULT_THRESHOLD = 0.6;
-
+const DEFAULT_SCAN_MODE = "full"; // "full" hoặc "domain"
 // đọc cấu hình model/threshold hiện tại
 function getCurrentConfig() {
   return new Promise((resolve) => {
     chrome.storage.sync.get(
-      ["phiusiil_model", "phiusiil_threshold"],
+      ["phiusiil_model", "phiusiil_threshold", "phiusiil_scan_mode"],
       (data) => {
         let model = data.phiusiil_model || DEFAULT_MODEL;
+        let scan_mode = data.phiusiil_scan_mode || DEFAULT_SCAN_MODE; // Lấy mode
         let threshold =
           typeof data.phiusiil_threshold === "number"
             ? data.phiusiil_threshold
@@ -20,7 +21,7 @@ function getCurrentConfig() {
         if (Number.isNaN(threshold)) threshold = DEFAULT_THRESHOLD;
         threshold = Math.min(Math.max(threshold, 0), 1);
 
-        resolve({ model, threshold });
+        resolve({ model, threshold, scan_mode });
       }
     );
   });
@@ -47,12 +48,12 @@ async function scanTab(tabId, url) {
     return;
   }
 
-  const { model, threshold } = await getCurrentConfig();
+  const { model, threshold, scan_mode } = await getCurrentConfig();
 
   // badge trạng thái đang quét
   setBadge(tabId, { text: "…", color: [38, 50, 56, 255] });
 
-  const payload = { url, model, threshold };
+  const payload = { url, model, threshold, scan_mode };
 
   try {
     const res = await fetch(API_BASE, {

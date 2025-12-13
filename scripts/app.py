@@ -64,25 +64,50 @@ def run_model(model_name: str, url: str, threshold: float):
 @app.route("/predict", methods=["POST"])
 def predict():
     data = request.get_json(force=True)
-    url = data.get("url")
+    raw_url = data.get("url", "")
     model_name = data.get("model", "xgb").lower()
     threshold = float(data.get("threshold", 0.5))
-    if not url:
+    scan_mode = data.get("scan_mode", "full")
+
+    if not raw_url:
         return jsonify({"error": "Missing 'url'"}), 400
 
-    url = url.strip()
-    d_hash = domain_hash(url)
+    # 1. Giữ lại URL gốc
+    original_url = raw_url.strip()
+
+    # 2. Tạo URL để xử lý (Processed URL)
+    processed_url = original_url
+    if scan_mode == "domain":
+        try:
+            parsed = urlparse(original_url)
+            processed_url = f"{parsed.scheme}://{parsed.netloc}"
+        except Exception:
+            pass
+
+    # 3. Tạo Cache Key phân biệt mode
+    cache_model_key = f"{model_name}_{scan_mode}"
+    d_hash = domain_hash(processed_url)  # Hash dựa trên cái thực tế quét
 
     # --- Kiểm tra cache ---
-    cached = firebase.get(d_hash, model_name)
+    cached = firebase.get(d_hash, cache_model_key)
     if cached:
         cached["cached"] = True
+        # Đảm bảo trả về đủ 2 url để hiển thị
+        cached["url"] = processed_url
+        cached["original_url"] = original_url
         return jsonify(cached), 200
 
     # --- Dự đoán mới ---
     try:
-        result = run_model(model_name, url, threshold)
-        firebase.save(d_hash, model_name, result)
+        # Chạy model với URL đã xử lý
+        result = run_model(model_name, processed_url, threshold)
+
+        # Bổ sung thông tin URL gốc vào kết quả
+        result["original_url"] = original_url
+
+        # Lưu cache
+        firebase.save(d_hash, cache_model_key, result)
+
         result["cached"] = False
         return jsonify(result), 200
     except Exception as e:

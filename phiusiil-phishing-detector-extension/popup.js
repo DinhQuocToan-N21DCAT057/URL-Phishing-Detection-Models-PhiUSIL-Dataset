@@ -17,7 +17,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   els.resCached = document.getElementById("res-cached");
   els.resCreated = document.getElementById("res-created");
   els.resUrl = document.getElementById("res-url");
-
+  els.resOriginalUrl = document.getElementById("res-original-url");
   // load config từ storage
   chrome.storage.sync.get(["phiusiil_model", "phiusiil_threshold"], (data) => {
     if (data.phiusiil_model) {
@@ -26,6 +26,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof data.phiusiil_threshold === "number") {
       els.thresholdInput.value = data.phiusiil_threshold.toFixed(2);
     }
+  });
+
+  // Khi load popup
+  chrome.storage.sync.get(["phiusiil_scan_mode"], (data) => {
+    document.getElementById("scanMode").value = data.phiusiil_scan_mode || "full";
+  });
+
+    // Khi thay đổi
+  document.getElementById("scanMode").addEventListener("change", (e) => {
+  chrome.storage.sync.set({ phiusiil_scan_mode: e.target.value });
+    // Gửi message yêu cầu rescan nếu cần
   });
 
   els.modelSelect.addEventListener("change", saveConfig);
@@ -123,6 +134,7 @@ function showResult(result) {
   const model = result.model || "?";
   const createdAt = result.created_at || "";
   const url = result.url || "";
+  const originalUrl = result.original_url || url; // Fallback về url nếu không có
 
   const isPhishing = pred === 0;
 
@@ -136,6 +148,15 @@ function showResult(result) {
       "safe",
       ` Benign / Có vẻ an toàn (label = 1, p = ${proba.toFixed(3)})`
     );
+  }
+
+  // Nếu 2 URL giống nhau (chế độ Full) thì có thể ẩn bớt 1 dòng cho gọn (Tùy chọn)
+  if (url === originalUrl) {
+      els.resOriginalUrl.parentElement.style.display = 'none';
+      els.resUrl.previousElementSibling.textContent = "URL:"; // Đổi lại nhãn
+  } else {
+      els.resOriginalUrl.parentElement.style.display = 'flex';
+      els.resUrl.previousElementSibling.textContent = "URL Đã quét:";
   }
 
   els.resModel.textContent = model;
