@@ -32,3 +32,32 @@ class FirebaseClient:
     def save(self, domain_hash: str, model: str, payload: dict):
         payload["created_at"] = datetime.utcnow().isoformat()
         self.col.document(self._key(domain_hash, model)).set(payload)
+
+    def get_all_logs(self, limit=None):
+        """Lấy danh sách log. Nếu limit=None thì lấy tất cả."""
+        try:
+            query = self.col.order_by("created_at", direction=firestore.Query.DESCENDING)
+
+            # Chỉ giới hạn nếu có tham số limit
+            if limit:
+                query = query.limit(limit)
+
+            docs = query.stream()
+            results = []
+            for doc in docs:
+                data = doc.to_dict()
+                data["id"] = doc.id
+                results.append(data)
+            return results
+        except Exception as e:
+            print(f"Error fetching logs: {e}")
+            return []
+
+    def update(self, doc_id: str, updates: dict):
+        """Cập nhật một số trường cụ thể cho document."""
+        try:
+            self.col.document(doc_id).update(updates)
+            return True
+        except Exception as e:
+            print(f"Error updating doc {doc_id}: {e}")
+            return False

@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 import hashlib
 import logging
 import warnings
+from datetime import datetime
 
 try:
     from scripts.model_inferences import (
@@ -113,12 +114,59 @@ def predict():
     except Exception as e:
         logging.exception("Prediction error")
         return jsonify({"error": str(e)}), 500
-
-
 @app.route("/healthz")
 def health():
     return jsonify({"status": "ok"}), 200
 
+
+@app.route("/api/logs", methods=["GET"])
+def get_logs():
+    try:
+        # Nhận tham số limit từ URL. Nếu client gửi 0 hoặc không gửi, ta hiểu là lấy hết.
+        limit_param = request.args.get("limit", default=0, type=int)
+
+        # Nếu limit = 0 -> truyền None vào hàm firebase để lấy hết
+        limit = limit_param if limit_param > 0 else None
+
+        logs = firebase.get_all_logs(limit=limit)
+        return jsonify(logs), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/logs/<doc_id>", methods=["PUT"])
+def update_log_entry(doc_id):
+    """API để sửa nhãn hoặc cập nhật trạng thái."""
+    try:
+        data = request.get_json()
+        # Chỉ cho phép update một số trường an toàn
+        allowed_updates = {}
+        if "pred" in data:
+            allowed_updates["pred"] = int(data["pred"])
+        if "is_verified" in data:
+            allowed_updates["is_verified"] = bool(data["is_verified"])
+
+        if not allowed_updates:
+            return jsonify({"error": "No valid fields to update"}), 400
+
+        # Thêm thời gian cập nhật
+        allowed_updates["updated_at"] = datetime.utcnow().isoformat()
+
+        success = firebase.update(doc_id, allowed_updates)
+        if success:
+            return jsonify({"status": "updated", "id": doc_id, "updates": allowed_updates}), 200
+        else:
+            return jsonify({"error": "Failed to update in Firestore"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+# Endpoint xoá cache (nếu muốn demo chức năng admin )
+@app.route("/api/logs/<doc_id>", methods=["DELETE"])
+def delete_log(doc_id):
+    try:
+        firebase.col.document(doc_id).delete()
+        return jsonify({"status": "deleted", "id": doc_id}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
