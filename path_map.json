@@ -65,7 +65,7 @@
         "is_zip": true
     },
     "FIREBASE": {
-        "credential_file": "phiusiil-url-phishing-database-firebase-adminsdk-fbsvc-a514f3d602.json",
+        "credential_file": "phiusiil-url-phishing-database-firebase-adminsdk-fbsvc-510e06e3aa.json",
         "project_id": "phiusiil-url-phishing-database",
         "collections": "predictions"
     }
