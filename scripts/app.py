@@ -8,23 +8,38 @@ from datetime import datetime
 
 try:
     from scripts.model_inferences import (
-        XGBoostInference, RFInference,
-        WordCNNInference, WordCNNLSTMInference, CharCNNInference, CharCNNLSTMInference, CNNHybridInference,
-        ALBERTInference, MobileBERTInference, TinyLlamaInference
+        XGBoostInference,
+        RFInference,
+        WordCNNInference,
+        WordCNNLSTMInference,
+        CharCNNInference,
+        CharCNNLSTMInference,
+        CNNHybridInference,
+        ALBERTInference,
+        MobileBERTInference,
+        TinyLlamaInference,
     )
     from scripts.configs import FirebaseConfigs
     from scripts.firebase_client import FirebaseClient
 except ModuleNotFoundError:
     from model_inferences import (
-        XGBoostInference, RFInference,
-        WordCNNInference, WordCNNLSTMInference, CharCNNInference, CharCNNLSTMInference, CNNHybridInference,
-        ALBERTInference, MobileBERTInference, TinyLlamaInference
+        XGBoostInference,
+        RFInference,
+        WordCNNInference,
+        WordCNNLSTMInference,
+        CharCNNInference,
+        CharCNNLSTMInference,
+        CNNHybridInference,
+        ALBERTInference,
+        MobileBERTInference,
+        TinyLlamaInference,
     )
     from configs import FirebaseConfigs
     from firebase_client import FirebaseClient
 
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 warnings.filterwarnings("ignore")
 
 INFERENCE_MAP = {
@@ -43,9 +58,11 @@ INFERENCE_MAP = {
 app = Flask(__name__)
 CORS(app)
 firebase_cfg = FirebaseConfigs()
-firebase = FirebaseClient(firebase_cfg.info["cred_path"],
-                          firebase_cfg.info["project_id"],
-                          firebase_cfg.info["collections"])
+firebase = FirebaseClient(
+    firebase_cfg.info["cred_path"],
+    firebase_cfg.info["project_id"],
+    firebase_cfg.info["collections"],
+)
 
 
 def domain_hash(url: str) -> str:
@@ -114,6 +131,8 @@ def predict():
     except Exception as e:
         logging.exception("Prediction error")
         return jsonify({"error": str(e)}), 500
+
+
 @app.route("/healthz")
 def health():
     return jsonify({"status": "ok"}), 200
@@ -139,7 +158,6 @@ def update_log_entry(doc_id):
     """API để sửa nhãn hoặc cập nhật trạng thái."""
     try:
         data = request.get_json()
-        # Chỉ cho phép update một số trường an toàn
         allowed_updates = {}
         if "pred" in data:
             allowed_updates["pred"] = int(data["pred"])
@@ -149,17 +167,22 @@ def update_log_entry(doc_id):
         if not allowed_updates:
             return jsonify({"error": "No valid fields to update"}), 400
 
-        # Thêm thời gian cập nhật
         allowed_updates["updated_at"] = datetime.utcnow().isoformat()
 
         success = firebase.update(doc_id, allowed_updates)
         if success:
-            return jsonify({"status": "updated", "id": doc_id, "updates": allowed_updates}), 200
+            return (
+                jsonify(
+                    {"status": "updated", "id": doc_id, "updates": allowed_updates}
+                ),
+                200,
+            )
         else:
             return jsonify({"error": "Failed to update in Firestore"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-# Endpoint xoá cache (nếu muốn demo chức năng admin )
+
+
 @app.route("/api/logs/<doc_id>", methods=["DELETE"])
 def delete_log(doc_id):
     try:
@@ -167,6 +190,7 @@ def delete_log(doc_id):
         return jsonify({"status": "deleted", "id": doc_id}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
